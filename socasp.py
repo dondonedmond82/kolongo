@@ -53,18 +53,18 @@ df_temp['Annee'] = df_temp['Annee'].astype("str")
 
 #########################################################################################################################################################
 
-show_distribution_marketeur = pn.widgets.Button(name="Distribution par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_distribution_marketeur = pn.widgets.Button(name="Distribution par Marketeur", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 show_distribution_marketeur.on_click(lambda event: show_page("Page3"))
 
-show_distribution_annuelle = pn.widgets.Button(name="Distribution Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_distribution_annuelle = pn.widgets.Button(name="Distribution Annuelle", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 show_distribution_annuelle.on_click(lambda event: show_page("Page4"))
 
 #########################################################################################################################################################
 
-create_user = pn.widgets.Button(name="Creer Utilisateur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+create_user = pn.widgets.Button(name="Creer Utilisateur", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 create_user.on_click(lambda event: createUsername())
 
-cancel_user = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+cancel_user = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 cancel_user.on_click(lambda event: cancelUsername())
 
 #########################################################################################################################################################
@@ -77,15 +77,15 @@ date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la
 
 #########################################################################################################################################################
 
-show_UserName = pn.widgets.Button(name="Details Utilisateur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_UserName = pn.widgets.Button(name="Details Utilisateur", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 show_UserName.on_click(lambda event: show_page("Page7"))
 
 #########################################################################################################################################################
 
-insert_importation = pn.widgets.Button(name="Ajout Importation", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_importation = pn.widgets.Button(name="Ajout Importation", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 insert_importation.on_click(lambda event: show_page("Page5"))
 
-insert_distribution = pn.widgets.Button(name="Ajout Distribution", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_distribution = pn.widgets.Button(name="Ajout Distribution", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 insert_distribution.on_click(lambda event: show_page("Page6"))
 
 #########################################################################################################################################################
@@ -159,7 +159,7 @@ fetch('/excel/importation_produit/marketeur/2025-2-22-8-5-16_importation_Tamoil.
 
 # Created Button for Export
 
-Exportbutton = pn.widgets.Button(name="Telecharger", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+Exportbutton = pn.widgets.Button(name="Telecharger", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 Exportbutton.js_on_click(code = JScode_fetch)
 
 
@@ -264,13 +264,13 @@ input_origine_two = pn.widgets.TextInput(name="Re-Origine", value='')
 input_provenance_two = pn.widgets.TextInput(name="Re-Provenance", value='')
 input_marketeur_two = pn.widgets.TextInput(name="Re-Marketeur", value='')
 
-validate_origine = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-validate_provenance = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-validate_marketeur = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+validate_origine = pn.widgets.Button(name="Valider", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+validate_provenance = pn.widgets.Button(name="Valider", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+validate_marketeur = pn.widgets.Button(name="Valider", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
-cancel_origine = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-cancel_provenance = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-cancel_marketeur = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+cancel_origine = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+cancel_provenance = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+cancel_marketeur = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
 
 validate_origine.on_click(lambda event: insertOrigine())
@@ -298,15 +298,15 @@ select_marketeur_distribution_insert = pn.widgets.Select(name="Marketeur", optio
 
 #########################################################################################################################################################
 
-valider = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-annuler = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+valider = pn.widgets.Button(name="Valider", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+annuler = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
-valider_distribution = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-annuler_distribution = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+valider_distribution = pn.widgets.Button(name="Valider", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+annuler_distribution = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
-actualiser_distribution = pn.widgets.Button(name="Actualiser", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+actualiser_distribution = pn.widgets.Button(name="Actualiser", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
-insert_username = pn.widgets.Button(name="Compte Utilisateur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_username = pn.widgets.Button(name="Compte Utilisateur", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 insert_username.on_click(lambda event: show_page("Page8"))
 
 #########################################################################################################################################################
@@ -605,7 +605,7 @@ def exportImportationMarketeur():
     df_pivot_marketeur_socasp.to_excel(fichier_marketeur)
 
 
-ExportBox_importation_marketeur = pn.widgets.Button(name="Sauvegarde Importation par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_importation_marketeur = pn.widgets.Button(name="Sauvegarde Importation par Marketeur", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 ExportBox_importation_marketeur.on_click(lambda event: exportImportationMarketeur())
 
 
@@ -619,7 +619,7 @@ def exportImportationAnnee():
     df_pivot_annee_socasp.to_excel(fichier_annee)
 
 
-ExportBox_importation_annee = pn.widgets.Button(name="Sauvegarde Importation Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_importation_annee = pn.widgets.Button(name="Sauvegarde Importation Annuelle", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 ExportBox_importation_annee.on_click(lambda event: exportImportationAnnee())
 
 
@@ -633,7 +633,7 @@ def exportDistributionMarketeur():
     df_pivot_marketeur_socasp.to_excel(fichier_marketeur)
 
 
-ExportBox_distribution_marketeur = pn.widgets.Button(name="Sauvegarde Distribution par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_distribution_marketeur = pn.widgets.Button(name="Sauvegarde Distribution par Marketeur", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 ExportBox_distribution_marketeur.on_click(lambda event: exportDistributionMarketeur())
 
 
@@ -647,7 +647,7 @@ def exportDistributionAnnee():
     df_pivot_annee_socasp.to_excel(fichier_annee)
 
 
-ExportBox_distribution_annee = pn.widgets.Button(name="Sauvegarde Distribution Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_distribution_annee = pn.widgets.Button(name="Sauvegarde Distribution Annuelle", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 ExportBox_distribution_annee.on_click(lambda event: exportDistributionAnnee())
 
 #########################################################################################################################################################
@@ -658,18 +658,18 @@ def create_annee_distribution(symbol_annee_distribution):
     return df_distribution_year_start_end[(df_distribution_year_start_end['Annee']  >= select_distribution_annee_start.value) & (df_distribution_year_start_end['Annee']  <= symbol_annee_distribution)].hvplot.table(width=960)
 
 
-ExportBox_marketeur = pn.widgets.Button(name="Sauvegarde Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_marketeur = pn.widgets.Button(name="Sauvegarde Annuelle", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 ExportBox_marketeur.on_click(lambda event: betweenDateDistributionAnnee())
 
 #########################################################################################################################################################
 
-show_importation_marketeur = pn.widgets.Button(name="Importation par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_importation_marketeur = pn.widgets.Button(name="Importation par Marketeur", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 show_importation_marketeur.on_click(lambda event: show_page("Page1"))
 
-show_importation_annuelle = pn.widgets.Button(name="Importation Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_importation_annuelle = pn.widgets.Button(name="Importation Annuelle", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 show_importation_annuelle.on_click(lambda event: show_page("Page2"))
 
-insert_general = pn.widgets.Button(name="Ajout Details", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_general = pn.widgets.Button(name="Ajout Details", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 insert_general.on_click(lambda event: show_page("Page9"))
 
 #########################################################################################################################################################
@@ -688,13 +688,13 @@ date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la
 
 #########################################################################################################################################################
 
-valider = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-annuler = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+valider = pn.widgets.Button(name="Valider", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+annuler = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
-valider_distribution = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
-annuler_distribution = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+valider_distribution = pn.widgets.Button(name="Valider", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
+annuler_distribution = pn.widgets.Button(name="Annuler", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
-actualiser_distribution = pn.widgets.Button(name="Actualiser", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+actualiser_distribution = pn.widgets.Button(name="Actualiser", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 
 valider.on_click(lambda event: insertImportation())
 annuler.on_click(lambda event: clearImportation())
@@ -1024,43 +1024,43 @@ def CreatePage9():
 # ---------------------------------------------------------------------------
 # SOCASP - Charte graphique inspirée du logo et tableau de bord analytique
 # ---------------------------------------------------------------------------
-# Couleurs principales reprises du logo SOCASP : bleu, rouge, vert, jaune et violet.
+# Palette SOCASP épurée : bleu et rouge uniquement.
 pn.config.raw_css.append("""
 :root {
     --socasp-blue: #17148e;
     --socasp-red: #d85d60;
-    --socasp-green: #2d9f62;
-    --socasp-yellow: #d4c928;
-    --socasp-purple: #6252a4;
-    --socasp-bg: #f5f6fb;
+    --socasp-bg: #ffffff;
     --socasp-ink: #24264a;
 }
-body { background: var(--socasp-bg); }
-.bk-root { font-family: Inter, "Segoe UI", Arial, sans-serif; }
+body, .bk-root { background: #ffffff; font-family: Inter, "Segoe UI", Arial, sans-serif; }
 h2, h3 { color: var(--socasp-blue); font-weight: 700; }
 .socasp-hero {
-    background: linear-gradient(115deg, #17148e 0%, #6252a4 48%, #d85d60 100%);
-    color: white; padding: 24px 28px; border-radius: 14px;
-    margin-bottom: 18px; box-shadow: 0 8px 24px rgba(23,20,142,.16);
+    background: linear-gradient(110deg, #17148e 0%, #17148e 72%, #d85d60 100%);
+    color: white; padding: 32px 36px; border-radius: 16px;
+    margin-bottom: 24px; box-shadow: 0 8px 24px rgba(23,20,142,.14);
 }
-.socasp-hero h2 { color: white; margin: 0 0 6px 0; }
+.socasp-hero h2 { color: white; margin: 0 0 8px 0; font-size: 30px; }
 .socasp-card {
-    background: white; border: 1px solid #e2e5f2; border-radius: 12px;
-    padding: 16px; box-shadow: 0 3px 12px rgba(23,20,142,.06);
+    background: #ffffff; border: 1px solid #17148e; border-radius: 14px;
+    padding: 20px; box-shadow: 0 4px 16px rgba(23,20,142,.07);
 }
 .socasp-sidebar {
-    background: #17148e; border-radius: 12px; padding: 14px;
+    background: #17148e; border-radius: 14px; padding: 16px;
 }
 .socasp-sidebar .bk-btn {
-    background: white; color: #17148e; border: 1px solid #d8d7f0;
-    font-weight: 600; text-align: left; border-radius: 8px;
+    background: #17148e; color: white; border: 1px solid #d85d60;
+    font-weight: 650; text-align: left; border-radius: 9px;
+    min-height: 44px; font-size: 14px;
 }
-.socasp-sidebar .bk-btn:hover {
-    background: #dfe9ff; color: #17148e; border-color: #d85d60;
+.socasp-sidebar .bk-btn:hover, .socasp-sidebar .bk-btn:focus {
+    background: #d85d60; color: white; border-color: #d85d60;
 }
+.bk-btn.bk-btn-primary { background-color: #17148e; border-color: #17148e; color: white; }
+.bk-btn.bk-btn-primary:hover { background-color: #d85d60; border-color: #d85d60; color: white; }
+.bk-btn.bk-btn-warning, .btn-warning { background-color: #17148e !important; border-color: #17148e !important; color: white !important; }
 .socasp-explanation {
-    background: #f8f8ff; border-left: 5px solid #d85d60;
-    border-radius: 10px; padding: 16px; color: #24264a;
+    background: #ffffff; border: 1px solid #17148e; border-left: 6px solid #d85d60;
+    border-radius: 12px; padding: 20px; color: #24264a;
 }
 """)
 
@@ -1154,10 +1154,10 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
 
     if chart_type == "hist":
         plot = data.hvplot.hist(
-            y=measure, bins=20, height=430, responsive=True,
+            y=measure, bins=20, height=560, responsive=True,
             title=f"Distribution des valeurs — {measure}",
             xlabel=f"Valeur de {measure}", ylabel="Fréquence", grid=True,
-            color="#6252a4"
+            color="#17148e"
         )
     elif chart_type == "scatter":
         if x_axis not in data.columns:
@@ -1167,7 +1167,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         if scatter_data.empty:
             return pn.pane.Alert("Aucune paire de valeurs numériques pour le nuage de points.", alert_type="warning")
         plot = scatter_data.hvplot.scatter(
-            x=x_axis, y=measure, height=430, responsive=True,
+            x=x_axis, y=measure, height=560, responsive=True,
             title=f"{measure} en fonction de {x_axis}",
             xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7,
             color="#d85d60"
@@ -1182,10 +1182,10 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             return pn.pane.Alert("Aucune donnée disponible pour construire la carte de chaleur.", alert_type="warning")
         plot = heat_data.hvplot.heatmap(
             x=heat_x, y="Annee", C=measure, aggregate="sum",
-            height=430, responsive=True,
+            height=560, responsive=True,
             title=f"Carte de chaleur — {measure} par {heat_x} et année",
             xlabel=heat_x, ylabel="Année", colorbar=True,
-            cmap=["#f7f5ff", "#6252a4", "#17148e"]
+            cmap=["#fce9eb", "#d85d60", "#17148e"]
         )
     else:
         if not category_exists:
@@ -1203,11 +1203,11 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         if grouped.empty:
             return pn.pane.Alert("Aucune donnée à afficher avec les paramètres sélectionnés.", alert_type="warning")
 
-        common = dict(height=430, responsive=True, title=f"{measure} par {category}", grid=True)
+        common = dict(height=560, responsive=True, title=f"{measure} par {category}", grid=True)
         if chart_type == "pie":
             plot = grouped.hvplot.pie(
                 y=measure, by=category, title=f"Répartition de {measure} par {category}",
-                height=430, responsive=True, legend="right"
+                height=560, responsive=True, legend="right"
             )
         elif chart_type == "bar":
             plot = grouped.hvplot.bar(
@@ -1217,7 +1217,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         elif chart_type == "barh":
             plot = grouped.hvplot.barh(
                 x=category, y=measure, **common, xlabel=f"Volume de {measure}",
-                ylabel=category, color="#2d9f62"
+                ylabel=category, color="#d85d60"
             )
         elif chart_type == "line":
             line_data = grouped.sort_values(category)
@@ -1229,14 +1229,14 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             area_data = grouped.sort_values(category)
             plot = area_data.hvplot.area(
                 x=category, y=measure, **common, xlabel=category,
-                ylabel=f"Volume de {measure}", alpha=0.65, color="#d4c928"
+                ylabel=f"Volume de {measure}", alpha=0.65, color="#d85d60"
             )
         elif chart_type == "box":
             plot = data.hvplot.box(
-                y=measure, by=category, height=430, responsive=True,
+                y=measure, by=category, height=560, responsive=True,
                 title=f"Dispersion de {measure} par {category}",
                 xlabel=category, ylabel=f"Volume de {measure}", grid=True,
-                color="#6252a4"
+                color="#17148e"
             )
 
     if plot is None:
@@ -1252,7 +1252,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             f"**Jeu de données :** {dataset}  \n"
             f"**Indicateur :** {measure}  \n"
             f"**Catégorie :** {category}",
-            styles={"color": "#6252a4", "font-size": "13px"}
+            styles={"color": "#17148e", "font-size": "13px"}
         ),
         styles={"background": "#f8f8ff", "border-left": "5px solid #d85d60",
                 "border-radius": "10px", "padding": "16px"},
@@ -1260,10 +1260,10 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         sizing_mode="fixed"
     )
     return pn.Row(
-        pn.Column(plot, sizing_mode="stretch_both", min_width=420, width=760),
+        pn.Column(plot, sizing_mode="stretch_both", min_width=600, width=1000),
         explanation_card,
         sizing_mode="stretch_width",
-        min_height=460,
+        min_height=600,
         margin=(8, 0, 12, 0)
     )
 
@@ -1285,9 +1285,9 @@ def CreatePage10():
     note = pn.pane.Markdown(
         "**Mode d'emploi :** choisissez le jeu de données, le type de graphique, la catégorie et le carburant. "
         "Le graphique et son explication en français se mettent à jour automatiquement.",
-        styles={"color": "#6252a4"}
+        styles={"color": "#17148e"}
     )
-    return pn.Column(hero, controls, create_analytics_chart, note, sizing_mode="stretch_width", margin=(0, 0, 18, 0))
+    return pn.Column(hero, controls, create_analytics_chart, note, sizing_mode="stretch_width", min_width=1000, margin=(0, 0, 24, 0))
 
 # ---------------------------------------------------------------------------
 
@@ -1304,10 +1304,10 @@ mapping = {
     "Page10": CreatePage10(),
 }
 
-logout   =  pn.widgets.Button(name="Déconnexion", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+logout   =  pn.widgets.Button(name="Déconnexion", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 logout.js_on_click(code="""window.location.href = './logout'""")
 
-sidebar = pn.Column(pn.pane.Markdown("## Menu", styles={"color": "white"}), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "15px", "background": "#17148e", "border-radius": "12px"})
+sidebar = pn.Column(pn.pane.Markdown("## Menu", styles={"color": "white"}), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "18px", "background": "#17148e", "border-radius": "14px"})
 main_area = pn.Column(mapping['Page1'], styles={"width":"100%"})
 
 template = pn.template.BootstrapTemplate(
@@ -1317,7 +1317,7 @@ template = pn.template.BootstrapTemplate(
     # footer=[sidebar],
     header_background="#17148e",
     site="Société Centrafricaine de stockage des Produits Pétroliers", logo="logo.png",
-    sidebar_width=250,
+    sidebar_width=310,
     busy_indicator=None,
 )
 
