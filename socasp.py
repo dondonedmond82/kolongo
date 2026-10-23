@@ -1022,27 +1022,45 @@ def CreatePage9():
 
 
 # ---------------------------------------------------------------------------
-# SOCASP - Style global et tableau de bord analytique
+# SOCASP - Charte graphique inspirée du logo et tableau de bord analytique
 # ---------------------------------------------------------------------------
+# Couleurs principales reprises du logo SOCASP : bleu, rouge, vert, jaune et violet.
 pn.config.raw_css.append("""
 :root {
-    --socasp-navy: #14263d;
-    --socasp-blue: #176b87;
-    --socasp-teal: #18a999;
-    --socasp-bg: #f3f6fa;
+    --socasp-blue: #17148e;
+    --socasp-red: #d85d60;
+    --socasp-green: #2d9f62;
+    --socasp-yellow: #d4c928;
+    --socasp-purple: #6252a4;
+    --socasp-bg: #f5f6fb;
+    --socasp-ink: #24264a;
 }
 body { background: var(--socasp-bg); }
 .bk-root { font-family: Inter, "Segoe UI", Arial, sans-serif; }
-h2, h3 { color: var(--socasp-navy); font-weight: 700; }
+h2, h3 { color: var(--socasp-blue); font-weight: 700; }
 .socasp-hero {
-    background: linear-gradient(120deg, #14263d 0%, #176b87 70%, #18a999 100%);
+    background: linear-gradient(115deg, #17148e 0%, #6252a4 48%, #d85d60 100%);
     color: white; padding: 24px 28px; border-radius: 14px;
-    margin-bottom: 18px; box-shadow: 0 8px 24px rgba(20,38,61,.14);
+    margin-bottom: 18px; box-shadow: 0 8px 24px rgba(23,20,142,.16);
 }
 .socasp-hero h2 { color: white; margin: 0 0 6px 0; }
 .socasp-card {
-    background: white; border: 1px solid #e2e8f0; border-radius: 12px;
-    padding: 16px; box-shadow: 0 3px 12px rgba(20,38,61,.05);
+    background: white; border: 1px solid #e2e5f2; border-radius: 12px;
+    padding: 16px; box-shadow: 0 3px 12px rgba(23,20,142,.06);
+}
+.socasp-sidebar {
+    background: #17148e; border-radius: 12px; padding: 14px;
+}
+.socasp-sidebar .bk-btn {
+    background: white; color: #17148e; border: 1px solid #d8d7f0;
+    font-weight: 600; text-align: left; border-radius: 8px;
+}
+.socasp-sidebar .bk-btn:hover {
+    background: #dfe9ff; color: #17148e; border-color: #d85d60;
+}
+.socasp-explanation {
+    background: #f8f8ff; border-left: 5px solid #d85d60;
+    border-radius: 10px; padding: 16px; color: #24264a;
 }
 """)
 
@@ -1055,13 +1073,8 @@ show_dashboard = pn.widgets.Button(
 show_dashboard.on_click(lambda event: show_page("Page10"))
 
 def _analytics_frame(dataset_name):
-    """Return a safe copy of the selected data source."""
-    if dataset_name == "Importations":
-        data = df_importation.copy()
-    else:
-        data = df_distribution.copy()
-
-    # Normalize common numeric fields for charting without changing the source data.
+    """Retourne une copie du jeu de données choisi, avec les colonnes numériques converties."""
+    data = df_importation.copy() if dataset_name == "Importations" else df_distribution.copy()
     for col in ["Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"]:
         if col in data.columns:
             data[col] = pd.to_numeric(data[col], errors="coerce")
@@ -1082,8 +1095,9 @@ analytics_chart_type = pn.widgets.Select(
         "Nuage de points (Scatter)": "scatter",
         "Histogramme (Hist)": "hist",
         "Courbe (Line)": "line",
-        "Boîte à moustaches (Boxplot)": "box",
+        "Carte de chaleur (Heatmap)": "heatmap",
         "Aire (Area)": "area",
+        "Boîte à moustaches (Boxplot)": "box",
     },
     value="bar"
 )
@@ -1098,10 +1112,22 @@ analytics_measure = pn.widgets.Select(
     value="Super"
 )
 analytics_x_axis = pn.widgets.Select(
-    name="Axe X (pour Scatter)",
+    name="Axe X (nuage de points)",
     options=["Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"],
     value="Annee"
 )
+
+GRAPH_EXPLANATIONS = {
+    "pie": "### Graphique en secteurs\nMontre la part de chaque catégorie dans le total sélectionné. Utile pour comparer la contribution des marketeurs ou des origines au volume total du carburant choisi.",
+    "bar": "### Barres verticales\nCompare les volumes entre catégories. Les barres les plus hautes correspondent aux catégories dont le volume cumulé est le plus important.",
+    "barh": "### Barres horizontales\nCompare les volumes par catégorie dans une présentation horizontale, pratique lorsque les noms des marketeurs ou des origines sont longs.",
+    "scatter": "### Nuage de points\nExamine la relation entre deux variables numériques, par exemple l'année et le volume. Chaque point représente une observation ; une tendance éventuelle peut suggérer une relation entre les variables.",
+    "hist": "### Histogramme\nPrésente la distribution des valeurs du carburant choisi. Il aide à repérer les valeurs fréquentes, la dispersion et d'éventuelles valeurs atypiques.",
+    "line": "### Courbe d'évolution\nVisualise l'évolution du volume selon la catégorie choisie. Pour une lecture temporelle, sélectionnez l'année ou le mois comme catégorie.",
+    "heatmap": "### Carte de chaleur\nCompare les volumes selon la catégorie et l'année à l'aide d'une échelle de couleurs. Les couleurs les plus intenses signalent les combinaisons avec les volumes les plus élevés.",
+    "area": "### Graphique en aires\nMontre l'évolution du volume et met visuellement en évidence son ampleur au fil des catégories ou des périodes.",
+    "box": "### Boîte à moustaches\nRésume la distribution des volumes par catégorie : médiane, dispersion et valeurs potentiellement atypiques. Ce graphique est utile pour comparer la variabilité entre groupes."
+}
 
 @pn.depends(
     dataset=analytics_dataset,
@@ -1124,70 +1150,122 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         return pn.pane.Alert(f"Aucune valeur numérique exploitable pour « {measure} ».", alert_type="warning")
 
     category_exists = category in data.columns
+    plot = None
+
     if chart_type == "hist":
-        return data.hvplot.hist(
+        plot = data.hvplot.hist(
             y=measure, bins=20, height=430, responsive=True,
             title=f"Distribution des valeurs — {measure}",
-            xlabel=measure, ylabel="Fréquence", grid=True
+            xlabel=f"Valeur de {measure}", ylabel="Fréquence", grid=True,
+            color="#6252a4"
         )
-
-    if chart_type == "scatter":
+    elif chart_type == "scatter":
         if x_axis not in data.columns:
             return pn.pane.Alert(f"La colonne « {x_axis} » est absente.", alert_type="warning")
         data[x_axis] = pd.to_numeric(data[x_axis], errors="coerce")
         scatter_data = data.dropna(subset=[x_axis, measure])
         if scatter_data.empty:
             return pn.pane.Alert("Aucune paire de valeurs numériques pour le nuage de points.", alert_type="warning")
-        return scatter_data.hvplot.scatter(
+        plot = scatter_data.hvplot.scatter(
             x=x_axis, y=measure, height=430, responsive=True,
             title=f"{measure} en fonction de {x_axis}",
-            xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7
+            xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7,
+            color="#d85d60"
         )
-
-    if not category_exists:
-        return pn.pane.Alert(
-            f"La catégorie « {category} » n'est pas disponible dans {dataset.lower()}. "
-            "Choisissez une autre catégorie.",
-            alert_type="warning"
+    elif chart_type == "heatmap":
+        if "Annee" not in data.columns or "Mois" not in data.columns:
+            return pn.pane.Alert("La carte de chaleur nécessite les colonnes Année et Mois.", alert_type="warning")
+        heat_x = category if category_exists and category != "Annee" else "Mois"
+        heat_data = data.dropna(subset=[heat_x, "Annee", measure])
+        heat_data = heat_data.groupby([heat_x, "Annee"], as_index=False)[measure].sum()
+        if heat_data.empty:
+            return pn.pane.Alert("Aucune donnée disponible pour construire la carte de chaleur.", alert_type="warning")
+        plot = heat_data.hvplot.heatmap(
+            x=heat_x, y="Annee", C=measure, aggregate="sum",
+            height=430, responsive=True,
+            title=f"Carte de chaleur — {measure} par {heat_x} et année",
+            xlabel=heat_x, ylabel="Année", colorbar=True,
+            cmap=["#f7f5ff", "#6252a4", "#17148e"]
         )
+    else:
+        if not category_exists:
+            return pn.pane.Alert(
+                f"La catégorie « {category} » n'est pas disponible dans {dataset.lower()}. Choisissez une autre catégorie.",
+                alert_type="warning"
+            )
+        grouped = (
+            data.dropna(subset=[category])
+                .groupby(category, dropna=False)[measure]
+                .sum()
+                .reset_index()
+                .sort_values(measure, ascending=False)
+        )
+        if grouped.empty:
+            return pn.pane.Alert("Aucune donnée à afficher avec les paramètres sélectionnés.", alert_type="warning")
 
-    grouped = (
-        data.dropna(subset=[category])
-            .groupby(category, dropna=False)[measure]
-            .sum()
-            .reset_index()
-            .sort_values(measure, ascending=False)
+        common = dict(height=430, responsive=True, title=f"{measure} par {category}", grid=True)
+        if chart_type == "pie":
+            plot = grouped.hvplot.pie(
+                y=measure, by=category, title=f"Répartition de {measure} par {category}",
+                height=430, responsive=True, legend="right"
+            )
+        elif chart_type == "bar":
+            plot = grouped.hvplot.bar(
+                x=category, y=measure, **common, xlabel=category,
+                ylabel=f"Volume de {measure}", rot=35, color="#17148e"
+            )
+        elif chart_type == "barh":
+            plot = grouped.hvplot.barh(
+                x=category, y=measure, **common, xlabel=f"Volume de {measure}",
+                ylabel=category, color="#2d9f62"
+            )
+        elif chart_type == "line":
+            line_data = grouped.sort_values(category)
+            plot = line_data.hvplot.line(
+                x=category, y=measure, **common, xlabel=category,
+                ylabel=f"Volume de {measure}", marker="circle", color="#d85d60"
+            )
+        elif chart_type == "area":
+            area_data = grouped.sort_values(category)
+            plot = area_data.hvplot.area(
+                x=category, y=measure, **common, xlabel=category,
+                ylabel=f"Volume de {measure}", alpha=0.65, color="#d4c928"
+            )
+        elif chart_type == "box":
+            plot = data.hvplot.box(
+                y=measure, by=category, height=430, responsive=True,
+                title=f"Dispersion de {measure} par {category}",
+                xlabel=category, ylabel=f"Volume de {measure}", grid=True,
+                color="#6252a4"
+            )
+
+    if plot is None:
+        return pn.pane.Alert("Type de graphique non reconnu.", alert_type="warning")
+
+    explanation = pn.pane.Markdown(
+        GRAPH_EXPLANATIONS.get(chart_type, "### Lecture du graphique\nExplorez les données à l'aide des paramètres."),
+        sizing_mode="stretch_width"
     )
-    if grouped.empty:
-        return pn.pane.Alert("Aucune donnée à afficher avec les filtres sélectionnés.", alert_type="warning")
-
-    title = f"{measure} par {category}"
-    common = dict(height=430, responsive=True, title=title, grid=True)
-
-    if chart_type == "pie":
-        return grouped.hvplot.pie(
-            y=measure, by=category, title=title, height=430,
-            responsive=True, legend="right"
-        )
-    if chart_type == "bar":
-        return grouped.hvplot.bar(x=category, y=measure, **common, xlabel=category, ylabel=measure, rot=35)
-    if chart_type == "barh":
-        return grouped.hvplot.barh(x=category, y=measure, **common, xlabel=measure, ylabel=category)
-    if chart_type == "line":
-        line_data = grouped.sort_values(category)
-        return line_data.hvplot.line(x=category, y=measure, **common, xlabel=category, ylabel=measure, marker="circle")
-    if chart_type == "area":
-        area_data = grouped.sort_values(category)
-        return area_data.hvplot.area(x=category, y=measure, **common, xlabel=category, ylabel=measure, alpha=0.65)
-    if chart_type == "box":
-        return data.hvplot.box(
-            y=measure, by=category, height=430, responsive=True,
-            title=f"Dispersion de {measure} par {category}",
-            xlabel=category, ylabel=measure, grid=True
-        )
-
-    return pn.pane.Alert("Type de graphique non reconnu.", alert_type="warning")
-
+    explanation_card = pn.Column(
+        explanation,
+        pn.pane.Markdown(
+            f"**Jeu de données :** {dataset}  \n"
+            f"**Indicateur :** {measure}  \n"
+            f"**Catégorie :** {category}",
+            styles={"color": "#6252a4", "font-size": "13px"}
+        ),
+        styles={"background": "#f8f8ff", "border-left": "5px solid #d85d60",
+                "border-radius": "10px", "padding": "16px"},
+        width=290,
+        sizing_mode="fixed"
+    )
+    return pn.Row(
+        pn.Column(plot, sizing_mode="stretch_both", min_width=420, width=760),
+        explanation_card,
+        sizing_mode="stretch_width",
+        min_height=460,
+        margin=(8, 0, 12, 0)
+    )
 
 def CreatePage10():
     hero = pn.pane.HTML(
@@ -1198,24 +1276,18 @@ def CreatePage10():
         sizing_mode="stretch_width"
     )
     controls = pn.Card(
-        pn.Row(analytics_dataset, analytics_chart_type),
-        pn.Row(analytics_category, analytics_measure, analytics_x_axis),
+        pn.Row(analytics_dataset, analytics_chart_type, sizing_mode="stretch_width"),
+        pn.Row(analytics_category, analytics_measure, analytics_x_axis, sizing_mode="stretch_width"),
         title="Paramètres d'analyse",
         collapsed=False,
-        styles={"background": "white", "border-radius": "12px"}
-    )
-    chart = pn.Column(
-        create_analytics_chart,
-        styles={"background": "white", "padding": "16px", "border-radius": "12px",
-                "border": "1px solid #e2e8f0"},
-        sizing_mode="stretch_width", margin=(0, 0, 12, 0)
+        styles={"background": "white", "border-radius": "12px", "border": "1px solid #e2e5f2"}
     )
     note = pn.pane.Markdown(
-        "**Conseil :** choisissez le jeu de données, le type de graphique, la catégorie et le carburant. "
-        "Le graphique se met à jour automatiquement.",
-        styles={"color": "#526174"}
+        "**Mode d'emploi :** choisissez le jeu de données, le type de graphique, la catégorie et le carburant. "
+        "Le graphique et son explication en français se mettent à jour automatiquement.",
+        styles={"color": "#6252a4"}
     )
-    return pn.Column(hero, controls, chart, note, sizing_mode="stretch_width", margin=(0, 0, 18, 0))
+    return pn.Column(hero, controls, create_analytics_chart, note, sizing_mode="stretch_width", margin=(0, 0, 18, 0))
 
 # ---------------------------------------------------------------------------
 
@@ -1235,7 +1307,7 @@ mapping = {
 logout   =  pn.widgets.Button(name="Déconnexion", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
 logout.js_on_click(code="""window.location.href = './logout'""")
 
-sidebar = pn.Column(pn.pane.Markdown("## Menu"), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "15px"})
+sidebar = pn.Column(pn.pane.Markdown("## Menu", styles={"color": "white"}), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "15px", "background": "#17148e", "border-radius": "12px"})
 main_area = pn.Column(mapping['Page1'], styles={"width":"100%"})
 
 template = pn.template.BootstrapTemplate(
@@ -1243,8 +1315,8 @@ template = pn.template.BootstrapTemplate(
     sidebar=[sidebar],
     main=[main_area],
     # footer=[sidebar],
-    header_background="#14263d",
-    site="Société Centrafricaine de stockage des Produits Pétroliers",  logo="logo.png",
+    header_background="#17148e",
+    site="Société Centrafricaine de stockage des Produits Pétroliers", logo="logo.png",
     sidebar_width=250,
     busy_indicator=None,
 )
