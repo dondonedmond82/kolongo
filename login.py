@@ -10,7 +10,7 @@ import os
 
 def returnLogDetails():
 
-    host_socasp = "192.168.56.114"
+    host_socasp = "192.168.1.144"
     user_socasp = 'dondonedmond'
     password_socasp = 'toor'
     database_socasp = 'socasp'
