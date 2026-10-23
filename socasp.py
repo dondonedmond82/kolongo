@@ -1183,6 +1183,89 @@ GRAPH_EXPLANATIONS = {
     "box": "### Boîte à moustaches\nRésume la distribution des volumes par catégorie : médiane, dispersion et valeurs potentiellement atypiques. Ce graphique est utile pour comparer la variabilité entre groupes."
 }
 
+# ---------------------------------------------------------------------------
+# KPI cards: volumes cumulés par carburant, synchronisés avec le jeu de données
+# sélectionné (Importations ou Distributions).
+# ---------------------------------------------------------------------------
+def _format_kpi_value(value):
+    return f"{value:,.2f}".replace(",", " ").replace(".", ",")
+
+
+@pn.depends(dataset=analytics_dataset)
+def create_fuel_kpis(dataset):
+    data = _analytics_frame(dataset)
+    fuels = [
+        ("Super", "Super"),
+        ("JetA1", "Jet A1"),
+        ("Gazoil", "Gazoil"),
+        ("Petrole", "Pétrole"),
+    ]
+
+    cards = []
+    for column, label in fuels:
+        total = (
+            pd.to_numeric(data[column], errors="coerce").fillna(0).sum()
+            if column in data.columns else 0
+        )
+        cards.append(
+            pn.Column(
+                pn.pane.Markdown(
+                    f"<div style='font-size:13px;font-weight:600;color:#17148E'>{label}</div>",
+                    sizing_mode="stretch_width",
+                ),
+                pn.pane.Markdown(
+                    f"<div style='font-size:25px;font-weight:750;color:#17148E'>{_format_kpi_value(total)}</div>",
+                    sizing_mode="stretch_width",
+                ),
+                pn.pane.Markdown(
+                    f"<div style='font-size:11px;color:#666'>Volume total</div>",
+                    sizing_mode="stretch_width",
+                ),
+                styles={
+                    "background": "#ffffff",
+                    "border": "1px solid #17148E",
+                    "border-radius": "12px",
+                    "padding": "14px 16px",
+                    "box-shadow": "0 3px 12px rgba(0,0,0,0.05)",
+                },
+                sizing_mode="stretch_width",
+                min_width=0,
+                width=200,
+            )
+        )
+
+    total_all = sum(
+        pd.to_numeric(data[c], errors="coerce").fillna(0).sum()
+        for c, _ in fuels if c in data.columns
+    )
+    cards.append(
+        pn.Column(
+            pn.pane.Markdown(
+                "<div style='font-size:13px;font-weight:600;color:#17148E'>Total général</div>",
+                sizing_mode="stretch_width",
+            ),
+            pn.pane.Markdown(
+                f"<div style='font-size:25px;font-weight:750;color:#17148E'>{_format_kpi_value(total_all)}</div>",
+                sizing_mode="stretch_width",
+            ),
+            pn.pane.Markdown(
+                "<div style='font-size:11px;color:#666'>Tous les carburants</div>",
+                sizing_mode="stretch_width",
+            ),
+            styles={
+                "background": "#f5f5ff",
+                "border": "1px solid #17148E",
+                "border-radius": "12px",
+                "padding": "14px 16px",
+                "box-shadow": "0 3px 12px rgba(0,0,0,0.05)",
+            },
+            sizing_mode="stretch_width",
+            min_width=180,
+        )
+    )
+    return pn.FlexBox(*cards, sizing_mode="stretch_width", flex_wrap="nowrap", gap="12px", align_items="stretch")
+
+
 @pn.depends(
     dataset=analytics_dataset,
     chart_type=analytics_chart_type,
@@ -1348,7 +1431,18 @@ def CreatePage10():
         "Le graphique et son explication en français se mettent à jour automatiquement.",
         styles={"color": "#17148E"}
     )
-    return pn.Column(hero, controls, create_analytics_chart, note, sizing_mode="stretch_width", min_width=1000, margin=(0, 0, 24, 0))
+    kpi_heading = pn.pane.Markdown("### Indicateurs clés de performance (KPI)")
+    return pn.Column(
+        hero,
+        kpi_heading,
+        create_fuel_kpis,
+        controls,
+        create_analytics_chart,
+        note,
+        sizing_mode="stretch_width",
+        min_width=1000,
+        margin=(0, 0, 24, 0),
+    )
 
 # ---------------------------------------------------------------------------
 
