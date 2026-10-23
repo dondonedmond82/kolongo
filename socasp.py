@@ -1024,43 +1024,67 @@ def CreatePage9():
 # ---------------------------------------------------------------------------
 # SOCASP - Charte graphique inspirée du logo et tableau de bord analytique
 # ---------------------------------------------------------------------------
-# Palette SOCASP épurée : bleu et rouge uniquement.
+# Palette SOCASP monochrome : noir et blanc uniquement.
 pn.config.raw_css.append("""
 :root {
-    --socasp-blue: #17148e;
-    --socasp-red: #d85d60;
+    --socasp-green: #17148E;
+    --socasp-red: #17148E;
     --socasp-bg: #ffffff;
-    --socasp-ink: #24264a;
+    --socasp-ink: #17148E;
 }
 body, .bk-root { background: #ffffff; font-family: Inter, "Segoe UI", Arial, sans-serif; }
-h2, h3 { color: var(--socasp-blue); font-weight: 700; }
+/* Override Bootstrap/Panel defaults so no blue remains in the menu/sidebar. */
+:root {
+    --bs-primary: #17148E;
+    --bs-link-color: #17148E;
+    --bs-link-hover-color: #17148E;
+    --bs-btn-bg: #17148E;
+    --bs-btn-border-color: #17148E;
+}
+#sidebar, .sidebar, .bk-sidebar, .pn-sidebar, .bk-panel-models-layout .sidebar,
+.bk-panel-models-layout #sidebar, .bk-Column.socasp-sidebar {
+    background-color: #17148E !important;
+    border-color: #17148E !important;
+}
+.nav-link, .navbar .nav-link, .list-group-item { color: #17148E; }
+.nav-link:hover, .navbar .nav-link:hover, .list-group-item:hover {
+    color: #ffffff !important; background-color: #17148E !important;
+}
+.btn-primary, .btn-primary:focus, .btn-primary:active,
+.bk-btn.bk-btn-primary, .bk-btn.bk-btn-primary:focus {
+    background-color: #17148E !important; border-color: #17148E !important; color: #ffffff !important;
+}
+.btn-primary:hover, .bk-btn.bk-btn-primary:hover {
+    background-color: #17148E !important; border-color: #17148E !important; color: #ffffff !important;
+}
+h2, h3 { color: var(--socasp-green); font-weight: 700; }
 .socasp-hero {
-    background: linear-gradient(110deg, #17148e 0%, #17148e 72%, #d85d60 100%);
+    background: #17148E;
     color: white; padding: 32px 36px; border-radius: 16px;
-    margin-bottom: 24px; box-shadow: 0 8px 24px rgba(23,20,142,.14);
+    margin-bottom: 24px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
 }
 .socasp-hero h2 { color: white; margin: 0 0 8px 0; font-size: 30px; }
 .socasp-card {
-    background: #ffffff; border: 1px solid #17148e; border-radius: 14px;
-    padding: 20px; box-shadow: 0 4px 16px rgba(23,20,142,.07);
+    background: #ffffff; border: 1px solid #17148E; border-radius: 14px;
+    padding: 20px; box-shadow: 0 4px 16px rgba(0,0,0,.06);
 }
 .socasp-sidebar {
-    background: #17148e; border-radius: 14px; padding: 16px;
+    background: #17148E; border-radius: 14px; padding: 16px;
 }
 .socasp-sidebar .bk-btn {
-    background: #17148e; color: white; border: 1px solid #d85d60;
+    background: #17148E; color: white; border: 1px solid #17148E;
     font-weight: 650; text-align: left; border-radius: 9px;
     min-height: 44px; font-size: 14px;
 }
 .socasp-sidebar .bk-btn:hover, .socasp-sidebar .bk-btn:focus {
-    background: #d85d60; color: white; border-color: #d85d60;
+    background: #17148E; color: white; border-color: #17148E;
 }
-.bk-btn.bk-btn-primary { background-color: #17148e; border-color: #17148e; color: white; }
-.bk-btn.bk-btn-primary:hover { background-color: #d85d60; border-color: #d85d60; color: white; }
-.bk-btn.bk-btn-warning, .btn-warning { background-color: #17148e !important; border-color: #17148e !important; color: white !important; }
+.bk-btn.bk-btn-primary { background-color: #17148E; border-color: #17148E; color: white; }
+.bk-btn.bk-btn-primary:hover { background-color: #17148E; border-color: #17148E; color: white; }
+.bk-btn.bk-btn-warning, .btn-warning { background-color: #17148E !important; border-color: #17148E !important; color: white !important; }
 .socasp-explanation {
-    background: #ffffff; border: 1px solid #17148e; border-left: 6px solid #d85d60;
-    border-radius: 12px; padding: 20px; color: #24264a;
+    background: #ffffff; border: 1px solid #17148E; border-left: 6px solid #17148E;
+    border-radius: 12px; padding: 20px; color: #17148E;
 }
 """)
 
@@ -1157,7 +1181,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             y=measure, bins=20, height=560, responsive=True,
             title=f"Distribution des valeurs — {measure}",
             xlabel=f"Valeur de {measure}", ylabel="Fréquence", grid=True,
-            color="#17148e"
+            color="#17148E"
         )
     elif chart_type == "scatter":
         if x_axis not in data.columns:
@@ -1170,7 +1194,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             x=x_axis, y=measure, height=560, responsive=True,
             title=f"{measure} en fonction de {x_axis}",
             xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7,
-            color="#d85d60"
+            color="#17148E"
         )
     elif chart_type == "heatmap":
         if "Annee" not in data.columns or "Mois" not in data.columns:
@@ -1185,7 +1209,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             height=560, responsive=True,
             title=f"Carte de chaleur — {measure} par {heat_x} et année",
             xlabel=heat_x, ylabel="Année", colorbar=True,
-            cmap=["#fce9eb", "#d85d60", "#17148e"]
+            cmap=["#17148E", "#17148E"]
         )
     else:
         if not category_exists:
@@ -1212,31 +1236,31 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         elif chart_type == "bar":
             plot = grouped.hvplot.bar(
                 x=category, y=measure, **common, xlabel=category,
-                ylabel=f"Volume de {measure}", rot=35, color="#17148e"
+                ylabel=f"Volume de {measure}", rot=35, color="#17148E"
             )
         elif chart_type == "barh":
             plot = grouped.hvplot.barh(
                 x=category, y=measure, **common, xlabel=f"Volume de {measure}",
-                ylabel=category, color="#d85d60"
+                ylabel=category, color="#17148E"
             )
         elif chart_type == "line":
             line_data = grouped.sort_values(category)
             plot = line_data.hvplot.line(
                 x=category, y=measure, **common, xlabel=category,
-                ylabel=f"Volume de {measure}", marker="circle", color="#d85d60"
+                ylabel=f"Volume de {measure}", marker="circle", color="#17148E"
             )
         elif chart_type == "area":
             area_data = grouped.sort_values(category)
             plot = area_data.hvplot.area(
                 x=category, y=measure, **common, xlabel=category,
-                ylabel=f"Volume de {measure}", alpha=0.65, color="#d85d60"
+                ylabel=f"Volume de {measure}", alpha=0.65, color="#17148E"
             )
         elif chart_type == "box":
             plot = data.hvplot.box(
                 y=measure, by=category, height=560, responsive=True,
                 title=f"Dispersion de {measure} par {category}",
                 xlabel=category, ylabel=f"Volume de {measure}", grid=True,
-                color="#17148e"
+                color="#17148E"
             )
 
     if plot is None:
@@ -1252,9 +1276,9 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             f"**Jeu de données :** {dataset}  \n"
             f"**Indicateur :** {measure}  \n"
             f"**Catégorie :** {category}",
-            styles={"color": "#17148e", "font-size": "13px"}
+            styles={"color": "#17148E", "font-size": "13px"}
         ),
-        styles={"background": "#f8f8ff", "border-left": "5px solid #d85d60",
+        styles={"background": "#ffffff", "border": "1px solid #17148E", "border-left": "5px solid #17148E",
                 "border-radius": "10px", "padding": "16px"},
         width=290,
         sizing_mode="fixed"
@@ -1280,12 +1304,12 @@ def CreatePage10():
         pn.Row(analytics_category, analytics_measure, analytics_x_axis, sizing_mode="stretch_width"),
         title="Paramètres d'analyse",
         collapsed=False,
-        styles={"background": "white", "border-radius": "12px", "border": "1px solid #e2e5f2"}
+        styles={"background": "white", "border-radius": "12px", "border": "1px solid #17148E"}
     )
     note = pn.pane.Markdown(
         "**Mode d'emploi :** choisissez le jeu de données, le type de graphique, la catégorie et le carburant. "
         "Le graphique et son explication en français se mettent à jour automatiquement.",
-        styles={"color": "#17148e"}
+        styles={"color": "#17148E"}
     )
     return pn.Column(hero, controls, create_analytics_chart, note, sizing_mode="stretch_width", min_width=1000, margin=(0, 0, 24, 0))
 
@@ -1307,7 +1331,7 @@ mapping = {
 logout   =  pn.widgets.Button(name="Déconnexion", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 logout.js_on_click(code="""window.location.href = './logout'""")
 
-sidebar = pn.Column(pn.pane.Markdown("## Menu", styles={"color": "white"}), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "18px", "background": "#17148e", "border-radius": "14px"})
+sidebar = pn.Column(pn.pane.Markdown("## Menu", styles={"color": "white"}), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "18px", "background": "#17148E", "border-radius": "14px"})
 main_area = pn.Column(mapping['Page1'], styles={"width":"100%"})
 
 template = pn.template.BootstrapTemplate(
@@ -1315,7 +1339,7 @@ template = pn.template.BootstrapTemplate(
     sidebar=[sidebar],
     main=[main_area],
     # footer=[sidebar],
-    header_background="#17148e",
+    header_background="#17148E",
     site="Société Centrafricaine de stockage des Produits Pétroliers", logo="logo.png",
     sidebar_width=310,
     busy_indicator=None,
