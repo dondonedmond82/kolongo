@@ -1043,8 +1043,8 @@ body, .bk-root { background: #ffffff; font-family: Inter, "Segoe UI", Arial, san
 }
 #sidebar, .sidebar, .bk-sidebar, .pn-sidebar, .bk-panel-models-layout .sidebar,
 .bk-panel-models-layout #sidebar, .bk-Column.socasp-sidebar {
-    background-color: #17148E !important;
-    border-color: #17148E !important;
+    background-color: #ffffff !important;
+    border-color: #ffffff !important;
 }
 .nav-link, .navbar .nav-link, .list-group-item { color: #17148E; }
 .nav-link:hover, .navbar .nav-link:hover, .list-group-item:hover {
@@ -1178,7 +1178,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
 
     if chart_type == "hist":
         plot = data.hvplot.hist(
-            y=measure, bins=20, height=560, responsive=True,
+            y=measure, bins=20, height=400, width=800, responsive=False,
             title=f"Distribution des valeurs — {measure}",
             xlabel=f"Valeur de {measure}", ylabel="Fréquence", grid=True,
             color="#17148E"
@@ -1191,7 +1191,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         if scatter_data.empty:
             return pn.pane.Alert("Aucune paire de valeurs numériques pour le nuage de points.", alert_type="warning")
         plot = scatter_data.hvplot.scatter(
-            x=x_axis, y=measure, height=560, responsive=True,
+            x=x_axis, y=measure, height=400, width=800, responsive=False,
             title=f"{measure} en fonction de {x_axis}",
             xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7,
             color="#17148E"
@@ -1206,7 +1206,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             return pn.pane.Alert("Aucune donnée disponible pour construire la carte de chaleur.", alert_type="warning")
         plot = heat_data.hvplot.heatmap(
             x=heat_x, y="Annee", C=measure, aggregate="sum",
-            height=560, responsive=True,
+            height=400, width=800, responsive=False,
             title=f"Carte de chaleur — {measure} par {heat_x} et année",
             xlabel=heat_x, ylabel="Année", colorbar=True,
             cmap=["#17148E", "#17148E"]
@@ -1227,11 +1227,11 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         if grouped.empty:
             return pn.pane.Alert("Aucune donnée à afficher avec les paramètres sélectionnés.", alert_type="warning")
 
-        common = dict(height=560, responsive=True, title=f"{measure} par {category}", grid=True)
+        common = dict(height=400, width=800, responsive=False, title=f"{measure} par {category}", grid=True)
         if chart_type == "pie":
             plot = grouped.hvplot.pie(
                 y=measure, by=category, title=f"Répartition de {measure} par {category}",
-                height=560, responsive=True, legend="right"
+                height=400, width=800, responsive=False, legend="right"
             )
         elif chart_type == "bar":
             plot = grouped.hvplot.bar(
@@ -1257,7 +1257,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             )
         elif chart_type == "box":
             plot = data.hvplot.box(
-                y=measure, by=category, height=560, responsive=True,
+                y=measure, by=category, height=400, width=800, responsive=False,
                 title=f"Dispersion de {measure} par {category}",
                 xlabel=category, ylabel=f"Volume de {measure}", grid=True,
                 color="#17148E"
@@ -1284,10 +1284,10 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         sizing_mode="fixed"
     )
     return pn.Row(
-        pn.Column(plot, sizing_mode="stretch_both", min_width=600, width=1000),
+        pn.Column(plot, sizing_mode="fixed", min_width=800, width=800),
         explanation_card,
         sizing_mode="stretch_width",
-        min_height=600,
+        min_height=440,
         margin=(8, 0, 12, 0)
     )
 
@@ -1328,11 +1328,50 @@ mapping = {
     "Page10": CreatePage10(),
 }
 
+create_user_menu = pn.widgets.Button(
+    name="Créer Utilisateur", button_type="primary", icon="user-plus",
+    styles={"width": "100%"}
+)
+add_information_menu = pn.widgets.Button(
+    name="Ajout Informations", button_type="primary", icon="database",
+    styles={"width": "100%"}
+)
+create_user_menu.on_click(lambda event: show_page("Page8"))
+add_information_menu.on_click(lambda event: show_page("Page9"))
+
 logout   =  pn.widgets.Button(name="Déconnexion", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
 logout.js_on_click(code="""window.location.href = './logout'""")
 
-sidebar = pn.Column(pn.pane.Markdown("## Menu", styles={"color": "white"}), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "18px", "background": "#17148E", "border-radius": "14px"})
-main_area = pn.Column(mapping['Page1'], styles={"width":"100%"})
+# Top navigation tabs in the main body. The sidebar keeps only the dashboard shortcut and logout.
+main_tabs = pn.Tabs(
+    ("Importation par Marketeur", mapping["Page1"]),
+    ("Importation Annuelle", mapping["Page2"]),
+    ("Distribution par Marketeur", mapping["Page3"]),
+    ("Distribution Annuelle", mapping["Page4"]),
+    ("Ajout Importation", mapping["Page5"]),
+    ("Ajout Distribution", mapping["Page6"]),
+    ("Droits Utilisateurs", mapping["Page7"]),
+    sizing_mode="stretch_width",
+    tabs_location="above",
+    styles={"width": "100%"},
+)
+
+def open_dashboard_tab(event=None):
+    # The dashboard remains accessible from the sidebar, not in the top tab bar.
+    main_area.clear()
+    main_area.append(mapping["Page10"])
+
+show_dashboard.on_click(open_dashboard_tab)
+
+sidebar = pn.Column(
+    pn.pane.Markdown("## Menu", styles={"color": "#17148E"}),
+    show_dashboard,
+    create_user_menu,
+    add_information_menu,
+    logout,
+    styles={"width": "100%", "padding": "18px", "background": "#ffffff", "border-radius": "14px", "border": "1px solid #eeeeee"},
+)
+main_area = pn.Column(main_tabs, styles={"width": "100%"}, sizing_mode="stretch_width")
 
 template = pn.template.BootstrapTemplate(
     title=f"""Bienvenue {pn.state.user}""",
