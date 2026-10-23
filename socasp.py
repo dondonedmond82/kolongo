@@ -1,0 +1,1252 @@
+import panel as pn
+import hvplot.pandas
+import warnings
+import mysql.connector
+import json
+import datetime as dt
+import os
+
+from bokeh.io import curdoc
+from bokeh.models import ColumnDataSource, CustomJS
+from bokeh.models.widgets import DataTable, NumberFormatter, TableColumn, Button
+from bokeh.layouts import column,row
+
+from tkinter import *
+from tkinter.filedialog import asksaveasfile
+
+import ctypes
+import pandas as pd
+import numpy as np
+
+# import create_user as nomusername
+import connexion as connect
+import login as log
+import go as gotodb
+
+warnings.filterwarnings("ignore")
+pn.extension('tabulator')
+pn.extension('echarts')
+
+host_socasp, user_socasp, password_socasp, database_socasp, database_user = log.returnLogDetails()
+
+gotodb.connexion(host_socasp, user_socasp, password_socasp)
+
+df_importation = pd.read_excel("./data/importation.xlsx")
+df = pd.read_excel("./data/importation.xlsx")
+df_distribution = pd.read_excel("./data/distribution.xlsx")
+df_user = pd.read_excel("./data/utilisateurmotsdepasse.xlsx")
+
+df_origine = pd.read_excel("./type/origine_data.xlsx")
+df_provenance = pd.read_excel("./type/provenance_data.xlsx")
+df_marketeur = pd.read_excel("./type/marketeur_data.xlsx")
+
+df_importation = df_importation[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+df_distribution = df_distribution[['Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+
+df = df[[ 'No', 'Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+
+df['Annee'] = df['Annee'].astype("str")
+
+df_temp = df[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+df_temp['Annee'] = df_temp['Annee'].astype("str")
+
+
+#########################################################################################################################################################
+
+show_distribution_marketeur = pn.widgets.Button(name="Distribution par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_distribution_marketeur.on_click(lambda event: show_page("Page3"))
+
+show_distribution_annuelle = pn.widgets.Button(name="Distribution Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_distribution_annuelle.on_click(lambda event: show_page("Page4"))
+
+#########################################################################################################################################################
+
+create_user = pn.widgets.Button(name="Creer Utilisateur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+create_user.on_click(lambda event: createUsername())
+
+cancel_user = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+cancel_user.on_click(lambda event: cancelUsername())
+
+#########################################################################################################################################################
+
+date_distribution_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=dt.date(2000, 1, 1))
+date_distribution_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=dt.date(2000, 1, 1))
+
+date_distribution_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=dt.date(2000, 1, 1))
+date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=dt.date(2000, 1, 1))
+
+#########################################################################################################################################################
+
+show_UserName = pn.widgets.Button(name="Details Utilisateur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_UserName.on_click(lambda event: show_page("Page7"))
+
+#########################################################################################################################################################
+
+insert_importation = pn.widgets.Button(name="Ajout Importation", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_importation.on_click(lambda event: show_page("Page5"))
+
+insert_distribution = pn.widgets.Button(name="Ajout Distribution", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_distribution.on_click(lambda event: show_page("Page6"))
+
+#########################################################################################################################################################
+
+unique_annee_importation =  list(df_importation['Annee'].unique())
+
+select_annee_importation_start = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
+select_annee_importation_end = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
+
+
+unique_marketeur_importation =  list(df_importation['Marketeur'].unique())
+
+select_marketeur_importation_start = pn.widgets.Select(name="Marketeur Importation", options=unique_marketeur_importation)
+select_marketeur_importation_end = pn.widgets.Select(name="Marketeur Importation", options=unique_marketeur_importation)
+
+select_marketeur_annee = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
+select_marketeur_end = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
+
+#########################################################################################################################################################
+
+date_importation = pn.widgets.DatePicker(name='Date', value=dt.date(2000, 1, 1))
+date_distribution = pn.widgets.DatePicker(name='Date', value=dt.date(2000, 1, 1))
+
+#########################################################################################################################################################
+
+input_username = pn.widgets.TextInput(name=f"Nom d'Utilisateur", value='')
+input_password = pn.widgets.PasswordInput(name=f"Mots de Passe", value='')
+input_repassword = pn.widgets.PasswordInput(name=f"Re-Mots de Passe", value='')
+
+#########################################################################################################################################################
+
+input_essence = pn.widgets.TextInput(name="Essence", value='')
+input_jet = pn.widgets.TextInput(name="JetA1", value='')
+input_petrole = pn.widgets.TextInput(name="Petrole", value='')
+input_gazoil = pn.widgets.TextInput(name="Gazoil", value='')
+
+#########################################################################################################################################################
+
+input_essence_distribution = pn.widgets.TextInput(name="Essence", value='')
+input_jet_distribution = pn.widgets.TextInput(name="JetA1", value='')
+input_petrole_distribution = pn.widgets.TextInput(name="Petrole", value='')
+input_gazoil_distribution = pn.widgets.TextInput(name="Gazoil", value='')
+
+#########################################################################################################################################################
+
+JScode_fetch = """
+var filename = '2025-2-22-8-5-16_importation_Tamoil.xlsx';
+
+fetch('/excel/importation_produit/marketeur/2025-2-22-8-5-16_importation_Tamoil.xlsx', {cache: "no-store"}).then(response => response.blob())
+                .then(blob => {
+                    //addresses IE
+                    if (navigator.msSaveBlob) {
+                        navigator.msSaveBlob(blob, filename);
+                    }
+
+                    else {
+                        var link = document.createElement("a");
+                        link.href = URL.createObjectURL(blob);
+                        
+                        link.download = filename;
+                        link.target = "_blank";
+                        link.style.visibility = 'hidden';
+                        link.dispatchEvent(new MouseEvent('click'))
+                        URL.revokeObjectURL(url);
+                    }
+                    return response.text();
+                });
+
+"""
+
+
+# Created Button for Export
+
+Exportbutton = pn.widgets.Button(name="Telecharger", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+Exportbutton.js_on_click(code = JScode_fetch)
+
+
+def clearOrigine():
+    
+    input_origine_one.value = ""
+    input_origine_two.value = ""
+
+
+def insertOrigine():
+
+    origine_one = input_origine_one.value
+    origine_one = f"{origine_one}"
+
+    origine_two = input_origine_two.value
+    origine_two = f"{origine_two}"
+
+    try:
+        if origine_one == origine_two:
+        
+            connect.insertOrigine(host_socasp, user_socasp, password_socasp, database_socasp, origine_one, origine_two)
+            connect.connectionOrigine(host_socasp, user_socasp, password_socasp, database_socasp)
+
+            clearOrigine()
+
+        else:
+            print(f"L'origine n'est pas la meme.")
+
+    except Exception as Ex:
+            print("%s"%(Ex))
+
+
+
+def clearProvenance():
+    
+    input_provenance_one.value = ""
+    input_provenance_two.value = ""
+
+
+
+def insertProvenance():
+
+    provenance_one = input_provenance_one.value
+    provenance_one = f"{provenance_one}"
+
+    provenance_two = input_provenance_two.value
+    provenance_two = f"{provenance_two}"
+
+    try:
+        if provenance_one == provenance_two:
+        
+            connect.insertProvenance(host_socasp, user_socasp, password_socasp, database_socasp, provenance_one, provenance_two)
+            connect.connectionProvenance(host_socasp, user_socasp, password_socasp, database_socasp)
+
+            clearProvenance()
+
+        else:
+            print(f"La provenance n'est pas la meme.")
+
+    except Exception as Ex:
+            print("%s"%(Ex))
+
+
+
+def clearMarketeur():
+    
+    input_marketeur_one.value = ""
+    input_marketeur_two.value = ""
+
+
+
+def insertMarketeur():
+
+    marketeur_one = input_marketeur_one.value
+    marketeur_one = f"{marketeur_one}"
+
+    marketeur_two = input_marketeur_two.value
+    marketeur_two = f"{marketeur_two}"
+
+    try:
+        if marketeur_one == marketeur_two:
+        
+            connect.insertMarketeur(host_socasp, user_socasp, password_socasp, database_socasp, marketeur_one, marketeur_two)
+            connect.connectionMarketeur(host_socasp, user_socasp, password_socasp, database_socasp)
+
+            clearMarketeur()
+
+        else:
+            print(f"Le Marketeur n'est pas la meme.")
+
+    except Exception as Ex:
+            print("%s"%(Ex))
+
+
+#########################################################################################################################################################
+
+input_origine_one = pn.widgets.TextInput(name="Origine", value='')
+input_provenance_one = pn.widgets.TextInput(name="Provenance", value='')
+input_marketeur_one = pn.widgets.TextInput(name="Marketeur", value='')
+
+input_origine_two = pn.widgets.TextInput(name="Re-Origine", value='')
+input_provenance_two = pn.widgets.TextInput(name="Re-Provenance", value='')
+input_marketeur_two = pn.widgets.TextInput(name="Re-Marketeur", value='')
+
+validate_origine = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+validate_provenance = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+validate_marketeur = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+cancel_origine = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+cancel_provenance = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+cancel_marketeur = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+
+validate_origine.on_click(lambda event: insertOrigine())
+validate_provenance.on_click(lambda event: insertProvenance())
+validate_marketeur.on_click(lambda event: insertMarketeur())
+
+
+cancel_origine.on_click(lambda event: clearOrigine())
+cancel_provenance.on_click(lambda event: clearProvenance())
+cancel_marketeur.on_click(lambda event: clearMarketeur())
+
+#########################################################################################################################################################
+
+unique_origine = list(df_origine['Origine'].unique())
+unique_provenance =   list(df_provenance['Provenance'].unique())
+unique_marketeur =  list(df_marketeur['Marketeur'].unique())
+
+unique_annee =  list(df['Annee'].unique())
+
+select_origine = pn.widgets.Select(name="Origine", options=unique_origine)
+select_provenance = pn.widgets.Select(name="Provenance", options=unique_provenance)
+select_marketeur = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+
+select_marketeur_distribution_insert = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+
+#########################################################################################################################################################
+
+valider = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+annuler = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+valider_distribution = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+annuler_distribution = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+actualiser_distribution = pn.widgets.Button(name="Actualiser", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+insert_username = pn.widgets.Button(name="Compte Utilisateur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_username.on_click(lambda event: show_page("Page8"))
+
+#########################################################################################################################################################
+
+
+unique_user =  list(df_user['Hote'].unique())
+select_user = pn.widgets.Select(name="Hote", options=unique_user)
+
+@pn.depends(symbol_user = select_user)
+def create_username(symbol_user):
+    return df_user[df_user['Hote'] == symbol_user].hvplot.table(width=960)
+
+#########################################################################################################################################################
+
+def clearImportation():
+    
+    input_essence.value = ""
+    input_jet.value = ""
+    input_petrole.value = ""
+    input_gazoil.value = ""
+
+
+def insertImportation():
+
+    origine = select_origine.value
+    origine = f"{origine}"
+
+    provenance = select_provenance.value
+    provenance = f"{provenance}"
+
+    marketeur = select_marketeur.value
+    marketeur = f"{marketeur}"
+
+    essence = input_essence.value
+    essence = f"{essence}"
+
+    jet = input_jet.value
+    jet = f"{jet}"
+
+    petrole = input_petrole.value
+    petrole = f"{petrole}"
+
+    gazoil = input_gazoil.value
+    gazoil = f"{gazoil}"
+
+    anneemois = date_importation.value
+    anneemois = f"{anneemois}"
+
+    try:
+        connect.insertImportation(host_socasp, user_socasp, password_socasp, database_socasp, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois)
+        df_importation_excel =  pd.read_excel("./data/importation.xlsx")
+
+        clearImportation()
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+#########################################################################################################################################################
+
+def clearDistribution():
+    
+    input_essence_distribution.value = ""
+    input_jet_distribution.value = ""
+    input_petrole_distribution.value = ""
+    input_gazoil_distribution.value = ""
+
+
+def insertDistribution():
+
+    marketeur_distribution = select_marketeur_distribution_insert.value
+    essence_distribution = input_essence_distribution.value
+    jet_distribution = input_jet_distribution.value
+    petrole_distribution = input_petrole_distribution.value
+    gazoil_distribution = input_gazoil_distribution.value
+    anneemois_distribution = date_distribution.value
+
+    try:
+        connect.insertDistribution(host_socasp, user_socasp, password_socasp, database_socasp, marketeur_distribution, essence_distribution, jet_distribution, petrole_distribution, gazoil_distribution, anneemois_distribution)
+        df_distribution_excel  = pd.read_excel("./data/distribution.xlsx")
+
+        clearDistribution()
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+#########################################################################################################################################################
+
+unique_marketeur =  list(df_importation['Marketeur'].unique())
+unique_annee =  list(df_importation['Annee'].unique())
+
+select_annee_importation = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+select_importation_marketeur = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+
+select_importation_annee_start = pn.widgets.Select(name="Annee", options=unique_annee)
+select_importation_annee_end = pn.widgets.Select(name="Annee", options=unique_annee)
+
+
+def betweenDateImportation():
+
+    try:
+
+        importation_annee_start = date_importation_annee_marketeur_start.value.timetuple().tm_year
+        importation_annee_end   = date_importation_annee_marketeur_end.value.timetuple().tm_year
+        
+        connect.betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_socasp, importation_annee_start, importation_annee_end)
+
+        df_importation_between = pd.read_excel("./data/between_importation_annee.xlsx")
+
+        df_importation_between = df_importation_between[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+        df_importation_between['Annee'] = df_importation_between['Annee'].astype("str")
+
+        return df_importation_between
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+
+#########################################################################################################################################################
+
+def betweenDateImportationMarketeur():
+
+    try:
+
+        importation_annee_start = date_importation_annee_marketeur_start.value.timetuple().tm_year
+        importation_annee_end   = date_importation_annee_marketeur_end.value.timetuple().tm_year
+        
+        importation_mois_start = date_importation_annee_marketeur_start.value.month
+        importation_mois_end   = date_importation_annee_marketeur_end.value.month
+
+        connect.betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_socasp, importation_annee_start, importation_annee_end)
+
+        df_importation_between = pd.read_excel("./data/between_importation_annee.xlsx")
+
+        df_importation_between = df_importation_between[['No', 'Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+        df_importation_between['Annee'] = df_importation_between['Annee'].astype("str")
+
+        return df_importation_between
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+
+def betweenDateImportationAnnee():
+
+    try:
+
+        importation_annee_start   = select_importation_annee_start.value
+        importation_annee_end   = select_importation_annee_end.value
+
+        connect.betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_socasp, importation_annee_start, importation_annee_end)
+
+        df_importation_between = pd.read_excel("./data/between_importation_annee.xlsx")
+        df_importation_between = df_importation_between[['No', 'Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+
+        return df_importation_between
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+
+unique_marketeur =  list(df_distribution['Marketeur'].unique())
+unique_annee =  list(df_distribution['Annee'].unique())
+
+select_annee_distribution = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+select_distribution_marketeur = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+
+select_distribution_annee_start = pn.widgets.Select(name="Annee", options=unique_annee)
+select_distribution_annee_end = pn.widgets.Select(name="Annee", options=unique_annee)
+
+
+#########################################################################################################################################################
+
+def betweenDateDistributionAnnee():
+
+    try:
+
+        distribution_annee_start = select_distribution_annee_start.value
+        distribution_annee_end   = select_distribution_annee_end.value
+
+        connect.betweenDistributionAnnee(host_socasp, user_socasp, password_socasp, database_socasp, distribution_annee_start, distribution_annee_end)
+        df_distribution_between = pd.read_excel('./data/between_distribution_annee_one_two.xlsx')
+
+        df_distribution_between = df_distribution_between[['No', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+
+        return df_distribution_between
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+
+
+def betweenDateDistributionMarketeur():
+
+    try:
+
+        distribution_annee_start = date_distribution_annee_marketeur_start.value.timetuple().tm_year
+        distribution_annee_end   = date_distribution_annee_marketeur_end.value.timetuple().tm_year
+        
+        connect.betweenDistributionMarketeur(host_socasp, user_socasp, password_socasp, database_socasp, distribution_annee_start, distribution_annee_end)
+
+        df_distribution_between = pd.read_excel('./data/between_distribution_marketeur.xlsx')
+
+        df_distribution_between = df_distribution_between[['No', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+        df_distribution_between['Annee'] = df_distribution_between['Annee'].astype("str")
+
+        return df_distribution_between
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+
+#########################################################################################################################################################
+
+
+@pn.depends(symbol_marketeur_distribution = select_distribution_marketeur)
+
+def create_distribution_annee_marketeur(symbol_marketeur_distribution):
+    df_distribution_year_start_end_marketeur = betweenDateDistributionMarketeur()
+    return df_distribution_year_start_end_marketeur[df_distribution_year_start_end_marketeur['Marketeur']  == symbol_marketeur_distribution].hvplot.table(width=960)
+
+
+#########################################################################################################################################################
+
+def carburantPivotImportationMarketeur(df_importation_marketeur):
+    df_pivot = pd.pivot_table(data=df_importation_marketeur, index=['Marketeur', 'Annee'] ,values=['Super', 'JetA1', 'Petrole', 'Gazoil'], columns=['No', 'Mois'], aggfunc='sum', margins=True, margins_name='Cumul')
+    
+    df_pivot['Super'] = df_pivot['Super'].fillna(0)
+    df_pivot['JetA1'] = df_pivot['JetA1'].fillna(0)
+    df_pivot['Petrole'] = df_pivot['Petrole'].fillna(0)
+    df_pivot['Gazoil'] = df_pivot['Gazoil'].fillna(0)
+
+    df_pivot_stack = pd.DataFrame(df_pivot.stack(0))
+
+    return df_pivot_stack
+
+
+def carburantPivotImportationAnnee(df_importation_annee):
+        df_pivot = pd.pivot_table(data=df_importation_annee, index=['Marketeur', 'Annee'] ,values=['Super', 'JetA1', 'Petrole', 'Gazoil'], columns=['No', 'Mois'], aggfunc='sum', margins=True, margins_name='Cumul')
+    
+        df_pivot['Super'] = df_pivot['Super'].fillna(0)
+        df_pivot['JetA1'] = df_pivot['JetA1'].fillna(0)
+        df_pivot['Petrole'] = df_pivot['Petrole'].fillna(0)
+        df_pivot['Gazoil'] = df_pivot['Gazoil'].fillna(0)
+
+        df_pivot_stack = pd.DataFrame(df_pivot.stack(0))
+
+        return df_pivot_stack
+
+
+def carburantPivotDistributionMarketeur(df_distribution_marketeur):
+        df_pivot = pd.pivot_table(data=df_distribution_marketeur, index=['Marketeur', 'Annee'] ,values=['Super', 'JetA1', 'Petrole', 'Gazoil'], columns=['No', 'Mois'], aggfunc='sum', margins=True, margins_name='Cumul')
+    
+        df_pivot['Super'] = df_pivot['Super'].fillna(0)
+        df_pivot['JetA1'] = df_pivot['JetA1'].fillna(0)
+        df_pivot['Petrole'] = df_pivot['Petrole'].fillna(0)
+        df_pivot['Gazoil'] = df_pivot['Gazoil'].fillna(0)
+
+        df_pivot_stack = pd.DataFrame(df_pivot.stack(0))
+
+        return df_pivot_stack
+
+
+def carburantPivotDistributionAnnee(df_distribution_annee):
+    df_pivot = pd.pivot_table(data=df_distribution_annee, index=['Marketeur', 'Annee'] ,values=['Super', 'JetA1', 'Petrole', 'Gazoil'], columns=['No', 'Mois'], aggfunc='sum', margins=True, margins_name='Cumul')
+    
+    df_pivot['Super'] = df_pivot['Super'].fillna(0)
+    df_pivot['JetA1'] = df_pivot['JetA1'].fillna(0)
+    df_pivot['Petrole'] = df_pivot['Petrole'].fillna(0)
+    df_pivot['Gazoil'] = df_pivot['Gazoil'].fillna(0)
+
+    df_pivot_stack = pd.DataFrame(df_pivot.stack(0))
+
+    return df_pivot_stack
+
+
+#########################################################################################################################################################
+
+import datetime
+    
+year        = datetime.date.today().year     # the current year
+month       = datetime.date.today().month    # the current month
+date       = datetime.date.today().day      # the current day
+hour        = datetime.datetime.now().hour   # the current hour
+minute      = datetime.datetime.now().minute # the current minute
+second     = datetime.datetime.now().second #the current second
+
+def exportImportationMarketeur():
+
+    df_importation_marketeur = betweenDateImportationMarketeur()
+
+    df_importation_marketeur = df_importation_marketeur[(df_importation_marketeur['Marketeur'] == select_importation_marketeur.value)]
+    df_pivot_marketeur_socasp = carburantPivotImportationMarketeur(df_importation_marketeur)
+
+
+    fichier_marketeur = f"./excel/importation_produit/marketeur/{year}-{month}-{date}-{hour}-{minute}-{second}_importation_{select_importation_marketeur.value}.xlsx"
+    df_pivot_marketeur_socasp.to_excel(fichier_marketeur)
+
+
+ExportBox_importation_marketeur = pn.widgets.Button(name="Sauvegarde Importation par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_importation_marketeur.on_click(lambda event: exportImportationMarketeur())
+
+
+
+def exportImportationAnnee():
+
+    df_importation_annee = betweenDateImportationAnnee()
+    df_pivot_annee_socasp = carburantPivotImportationAnnee(df_importation_annee)
+
+    fichier_annee = f"./excel/importation_produit/annee/{year}-{month}-{date}-{hour}-{minute}-{second}_importation_{select_importation_annee_start.value}_{select_importation_annee_end.value}.xlsx"
+    df_pivot_annee_socasp.to_excel(fichier_annee)
+
+
+ExportBox_importation_annee = pn.widgets.Button(name="Sauvegarde Importation Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_importation_annee.on_click(lambda event: exportImportationAnnee())
+
+
+def exportDistributionMarketeur():
+
+    df_distribution_marketeur = betweenDateDistributionMarketeur()
+    df_distribution_marketeur = df_distribution_marketeur[(df_distribution_marketeur['Marketeur'] == select_distribution_marketeur.value)]
+    df_pivot_marketeur_socasp = carburantPivotDistributionMarketeur(df_distribution_marketeur)
+
+    fichier_marketeur = f"./excel/distribution_produit/marketeur/{year}-{month}-{date}-{hour}-{minute}-{second}_distribution_{select_distribution_marketeur.value}.xlsx"
+    df_pivot_marketeur_socasp.to_excel(fichier_marketeur)
+
+
+ExportBox_distribution_marketeur = pn.widgets.Button(name="Sauvegarde Distribution par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_distribution_marketeur.on_click(lambda event: exportDistributionMarketeur())
+
+
+
+def exportDistributionAnnee():
+
+    df_distribution_annee = betweenDateDistributionAnnee()
+    df_pivot_annee_socasp = carburantPivotDistributionAnnee(df_distribution_annee)
+
+    fichier_annee = f"./excel/distribution_produit/annee/{year}-{month}-{date}-{hour}-{minute}-{second}_distribution_{select_distribution_annee_start.value}_{select_distribution_annee_end.value}.xlsx"
+    df_pivot_annee_socasp.to_excel(fichier_annee)
+
+
+ExportBox_distribution_annee = pn.widgets.Button(name="Sauvegarde Distribution Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_distribution_annee.on_click(lambda event: exportDistributionAnnee())
+
+#########################################################################################################################################################
+
+@pn.depends(symbol_annee_distribution = select_distribution_annee_end)
+def create_annee_distribution(symbol_annee_distribution):
+    df_distribution_year_start_end = betweenDateDistributionAnnee()
+    return df_distribution_year_start_end[(df_distribution_year_start_end['Annee']  >= select_distribution_annee_start.value) & (df_distribution_year_start_end['Annee']  <= symbol_annee_distribution)].hvplot.table(width=960)
+
+
+ExportBox_marketeur = pn.widgets.Button(name="Sauvegarde Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+ExportBox_marketeur.on_click(lambda event: betweenDateDistributionAnnee())
+
+#########################################################################################################################################################
+
+show_importation_marketeur = pn.widgets.Button(name="Importation par Marketeur", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_importation_marketeur.on_click(lambda event: show_page("Page1"))
+
+show_importation_annuelle = pn.widgets.Button(name="Importation Annuelle", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+show_importation_annuelle.on_click(lambda event: show_page("Page2"))
+
+insert_general = pn.widgets.Button(name="Ajout Details", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+insert_general.on_click(lambda event: show_page("Page9"))
+
+#########################################################################################################################################################
+
+date_importation_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=dt.date(2000, 1, 1))
+date_importation_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=dt.date(2000, 1, 1))
+
+date_importation_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=dt.date(2000, 1, 1))
+date_importation_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=dt.date(2000, 1, 1))
+
+date_distribution_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=dt.date(2000, 1, 1))
+date_distribution_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=dt.date(2000, 1, 1))
+
+date_distribution_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=dt.date(2000, 1, 1))
+date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=dt.date(2000, 1, 1))
+
+#########################################################################################################################################################
+
+valider = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+annuler = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+valider_distribution = pn.widgets.Button(name="Valider", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+annuler_distribution = pn.widgets.Button(name="Annuler", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+actualiser_distribution = pn.widgets.Button(name="Actualiser", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+
+valider.on_click(lambda event: insertImportation())
+annuler.on_click(lambda event: clearImportation())
+
+valider_distribution.on_click(lambda event: insertDistribution())
+annuler_distribution.on_click(lambda event: clearDistribution())
+
+#########################################################################################################################################################
+
+def cancelUsername():
+
+    input_username.value = ""
+    input_password.value = ""
+
+
+def createUsername():
+
+    usernamesocasp  = input_username.value
+    passwordsocasp   = input_password.value
+    
+    try:
+        connect.createUserSocasp(host_socasp, user_socasp, password_socasp, database_socasp, usernamesocasp, passwordsocasp)
+        connect.insertUser(host_socasp, user_socasp, password_socasp, database_socasp, usernamesocasp, passwordsocasp)
+        connect.connectionUser(host_socasp, user_socasp, password_socasp, database_socasp)
+
+        cancelUsername()
+
+    except Exception as Ex:
+        print("%s"%(Ex))
+
+
+
+@pn.depends(symbol_marketeur_importation = select_importation_marketeur)
+def create_importation_annee_marketeur(symbol_marketeur_importation):
+    df_importation_year_start_end_marketeur = betweenDateImportationMarketeur()
+    return df_importation_year_start_end_marketeur[df_importation_year_start_end_marketeur['Marketeur']  == symbol_marketeur_importation].hvplot.table(width=960)
+
+
+
+@pn.depends(symbol_annee_importation = select_importation_annee_end)
+def create_annee_importation(symbol_annee_importation):
+    df_importation_year_start_end = betweenDateImportationAnnee()
+    return df_importation_year_start_end[(df_importation_year_start_end['Annee']  >= select_importation_annee_start.value) & (df_importation_year_start_end['Annee']  <= symbol_annee_importation)].hvplot.table(width=960)
+
+
+#########################################################################################################################################################
+
+def show_page(page_key):
+    main_area.clear()
+    main_area.append(mapping[page_key])
+    
+#########################################################################################################################################################
+
+def CreatePage1():
+
+    return pn.Column(
+                    pn.pane.Markdown("## Importation des Données des Carburants par Marketeur"),
+            pn.Row(
+                pn.Column(
+                    date_importation_annee_marketeur_start,
+                ),
+
+                pn.Column(
+                    date_importation_annee_marketeur_end,
+                ),
+
+                pn.Column(
+                    select_importation_marketeur,   
+                )
+                
+            ),
+
+            pn.Row(
+                pn.Column(
+                    create_importation_annee_marketeur,   
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    ExportBox_importation_marketeur,   
+                )
+            ),
+        )
+
+def CreatePage2():
+
+    return pn.Column(
+                pn.pane.Markdown("## Importation des Données des Carburants par Année"),
+
+            pn.Row(
+                pn.Column(
+                    select_importation_annee_start,
+                ),
+
+                pn.Column(
+                    select_importation_annee_end,
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    create_annee_importation,
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    ExportBox_importation_annee,  
+                )
+            ),
+        )
+
+
+def CreatePage3():
+
+    return pn.Column(
+
+            pn.pane.Markdown("## Distribution des Données des Carburants par Marketeur"),
+
+            pn.Row(
+                pn.Column(
+                    date_distribution_annee_marketeur_start,
+                ),
+
+                pn.Column(
+                    date_distribution_annee_marketeur_end,
+                ),
+
+                pn.Column(
+                    select_distribution_marketeur,   
+                )
+                
+            ),
+
+            pn.Row(
+                pn.Column(
+                    create_distribution_annee_marketeur,   
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    ExportBox_distribution_marketeur,   
+                )
+            ),
+        )
+
+def CreatePage4():
+
+    return pn.Column(
+
+            pn.pane.Markdown("## Distribution des Données des Carburants par Année"),
+
+            pn.Row(
+                pn.Column(
+                    select_distribution_annee_start,
+                ),
+
+                pn.Column(
+                    select_distribution_annee_end,
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    create_annee_distribution,
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    ExportBox_distribution_annee,   
+                )
+            ),
+        )
+
+
+def CreatePage5():
+
+        return pn.Column(
+
+            pn.pane.Markdown("## Insertion des Données des Carburants par Importation"),
+
+        pn.Column( 
+            pn.Row(
+                pn.Column(
+                    pn.Row(date_importation),
+                ),
+
+                pn.Column(
+                    pn.Row(select_origine),
+                ),
+
+                pn.Column(
+                    pn.Row(select_provenance),
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    pn.Row(select_marketeur),
+                ),
+
+                pn.Column(
+                    pn.Row(input_essence),
+                ),
+
+                pn.Column(
+                    pn.Row(input_jet),
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    pn.Row(input_petrole),
+                    pn.Row(valider),
+                ),
+
+                pn.Column(
+                    pn.Row(input_gazoil),
+                    pn.Row(annuler),
+                ),
+            ),
+        ),
+    )
+
+
+def CreatePage6():
+        return pn.Column(
+
+            pn.pane.Markdown("## Insertion des Données des Carburants par Distribution"),
+
+        pn.Column( 
+            pn.Row(
+                pn.Column(
+                    pn.Row(date_distribution),
+                ),
+
+                pn.Column(
+                    pn.Row(select_marketeur_distribution_insert),
+                ),
+
+                pn.Column(
+                    pn.Row(input_essence_distribution),
+                )
+            ),
+
+            pn.Row(
+                pn.Column(
+                    pn.Row(input_jet_distribution),
+                    pn.Row(valider_distribution),
+                ),
+
+                pn.Column(
+                    pn.Row(input_gazoil_distribution),
+                    pn.Row(annuler_distribution),
+                ),
+
+                pn.Column(
+                    pn.Row(input_petrole_distribution),
+                )
+            )
+        )
+    )
+
+
+def CreatePage7():
+    return pn.Column(
+
+                pn.pane.Markdown("## Details de droits d'accés des Utilisateurs"),
+
+                pn.Row(
+                    pn.Column(
+                        select_user,
+                    )
+                ),
+
+                pn.Row(
+                    pn.Column(
+                        create_username,
+                    )
+                )
+            )
+
+
+def CreatePage8():
+    return pn.Column(
+
+            pn.pane.Markdown("## Creation de droits d'accés des Utilisateurs"),
+            
+            pn.Row(
+                pn.Column(
+                    input_username, create_user,
+                ),
+
+                pn.Column(
+                    input_password, cancel_user,
+                )
+            )
+        )
+
+
+def CreatePage9():
+    return pn.Column(
+
+            pn.pane.Markdown("## Insertion des Informations telles que l'Origine, Provenance et Marketeur."),
+
+            pn.Row(
+                pn.Column(
+                    input_origine_one, input_origine_two, validate_origine, cancel_origine,
+                ),
+
+                pn.Column(
+                    input_provenance_one, input_provenance_two, validate_provenance, cancel_provenance,
+                ),
+
+                pn.Column(
+                    input_marketeur_one, input_marketeur_two, validate_marketeur, cancel_marketeur,
+                )
+            )
+        )
+
+#########################################################################################################################################################
+
+
+# ---------------------------------------------------------------------------
+# SOCASP - Style global et tableau de bord analytique
+# ---------------------------------------------------------------------------
+pn.config.raw_css.append("""
+:root {
+    --socasp-navy: #14263d;
+    --socasp-blue: #176b87;
+    --socasp-teal: #18a999;
+    --socasp-bg: #f3f6fa;
+}
+body { background: var(--socasp-bg); }
+.bk-root { font-family: Inter, "Segoe UI", Arial, sans-serif; }
+h2, h3 { color: var(--socasp-navy); font-weight: 700; }
+.socasp-hero {
+    background: linear-gradient(120deg, #14263d 0%, #176b87 70%, #18a999 100%);
+    color: white; padding: 24px 28px; border-radius: 14px;
+    margin-bottom: 18px; box-shadow: 0 8px 24px rgba(20,38,61,.14);
+}
+.socasp-hero h2 { color: white; margin: 0 0 6px 0; }
+.socasp-card {
+    background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 16px; box-shadow: 0 3px 12px rgba(20,38,61,.05);
+}
+""")
+
+show_dashboard = pn.widgets.Button(
+    name="Tableau de bord analytique",
+    button_type="primary",
+    icon="chart-line",
+    styles={"width": "100%"}
+)
+show_dashboard.on_click(lambda event: show_page("Page10"))
+
+def _analytics_frame(dataset_name):
+    """Return a safe copy of the selected data source."""
+    if dataset_name == "Importations":
+        data = df_importation.copy()
+    else:
+        data = df_distribution.copy()
+
+    # Normalize common numeric fields for charting without changing the source data.
+    for col in ["Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"]:
+        if col in data.columns:
+            data[col] = pd.to_numeric(data[col], errors="coerce")
+    return data
+
+analytics_dataset = pn.widgets.RadioButtonGroup(
+    name="Jeu de données",
+    options=["Importations", "Distributions"],
+    value="Importations",
+    button_type="primary"
+)
+analytics_chart_type = pn.widgets.Select(
+    name="Type de graphique",
+    options={
+        "Secteurs (Pie)": "pie",
+        "Barres verticales (Bar)": "bar",
+        "Barres horizontales (Barh)": "barh",
+        "Nuage de points (Scatter)": "scatter",
+        "Histogramme (Hist)": "hist",
+        "Courbe (Line)": "line",
+        "Boîte à moustaches (Boxplot)": "box",
+        "Aire (Area)": "area",
+    },
+    value="bar"
+)
+analytics_category = pn.widgets.Select(
+    name="Catégorie",
+    options=["Marketeur", "Annee", "Mois", "Origine", "Provenance"],
+    value="Marketeur"
+)
+analytics_measure = pn.widgets.Select(
+    name="Mesure / carburant",
+    options=["Super", "JetA1", "Petrole", "Gazoil"],
+    value="Super"
+)
+analytics_x_axis = pn.widgets.Select(
+    name="Axe X (pour Scatter)",
+    options=["Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"],
+    value="Annee"
+)
+
+@pn.depends(
+    dataset=analytics_dataset,
+    chart_type=analytics_chart_type,
+    category=analytics_category,
+    measure=analytics_measure,
+    x_axis=analytics_x_axis,
+)
+def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
+    data = _analytics_frame(dataset)
+    if data.empty:
+        return pn.pane.Alert("Aucune donnée disponible pour ce jeu de données.", alert_type="warning")
+
+    if measure not in data.columns:
+        return pn.pane.Alert(f"La colonne « {measure} » est absente du jeu de données.", alert_type="warning")
+
+    data[measure] = pd.to_numeric(data[measure], errors="coerce")
+    data = data.dropna(subset=[measure])
+    if data.empty:
+        return pn.pane.Alert(f"Aucune valeur numérique exploitable pour « {measure} ».", alert_type="warning")
+
+    category_exists = category in data.columns
+    if chart_type == "hist":
+        return data.hvplot.hist(
+            y=measure, bins=20, height=430, responsive=True,
+            title=f"Distribution des valeurs — {measure}",
+            xlabel=measure, ylabel="Fréquence", grid=True
+        )
+
+    if chart_type == "scatter":
+        if x_axis not in data.columns:
+            return pn.pane.Alert(f"La colonne « {x_axis} » est absente.", alert_type="warning")
+        data[x_axis] = pd.to_numeric(data[x_axis], errors="coerce")
+        scatter_data = data.dropna(subset=[x_axis, measure])
+        if scatter_data.empty:
+            return pn.pane.Alert("Aucune paire de valeurs numériques pour le nuage de points.", alert_type="warning")
+        return scatter_data.hvplot.scatter(
+            x=x_axis, y=measure, height=430, responsive=True,
+            title=f"{measure} en fonction de {x_axis}",
+            xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7
+        )
+
+    if not category_exists:
+        return pn.pane.Alert(
+            f"La catégorie « {category} » n'est pas disponible dans {dataset.lower()}. "
+            "Choisissez une autre catégorie.",
+            alert_type="warning"
+        )
+
+    grouped = (
+        data.dropna(subset=[category])
+            .groupby(category, dropna=False)[measure]
+            .sum()
+            .reset_index()
+            .sort_values(measure, ascending=False)
+    )
+    if grouped.empty:
+        return pn.pane.Alert("Aucune donnée à afficher avec les filtres sélectionnés.", alert_type="warning")
+
+    title = f"{measure} par {category}"
+    common = dict(height=430, responsive=True, title=title, grid=True)
+
+    if chart_type == "pie":
+        return grouped.hvplot.pie(
+            y=measure, by=category, title=title, height=430,
+            responsive=True, legend="right"
+        )
+    if chart_type == "bar":
+        return grouped.hvplot.bar(x=category, y=measure, **common, xlabel=category, ylabel=measure, rot=35)
+    if chart_type == "barh":
+        return grouped.hvplot.barh(x=category, y=measure, **common, xlabel=measure, ylabel=category)
+    if chart_type == "line":
+        line_data = grouped.sort_values(category)
+        return line_data.hvplot.line(x=category, y=measure, **common, xlabel=category, ylabel=measure, marker="circle")
+    if chart_type == "area":
+        area_data = grouped.sort_values(category)
+        return area_data.hvplot.area(x=category, y=measure, **common, xlabel=category, ylabel=measure, alpha=0.65)
+    if chart_type == "box":
+        return data.hvplot.box(
+            y=measure, by=category, height=430, responsive=True,
+            title=f"Dispersion de {measure} par {category}",
+            xlabel=category, ylabel=measure, grid=True
+        )
+
+    return pn.pane.Alert("Type de graphique non reconnu.", alert_type="warning")
+
+
+def CreatePage10():
+    hero = pn.pane.HTML(
+        '<div class="socasp-hero">'
+        '<h2>Tableau de bord analytique SOCASP</h2>'
+        '<div>Analyse interactive des importations et distributions de carburants.</div>'
+        '</div>',
+        sizing_mode="stretch_width"
+    )
+    controls = pn.Card(
+        pn.Row(analytics_dataset, analytics_chart_type),
+        pn.Row(analytics_category, analytics_measure, analytics_x_axis),
+        title="Paramètres d'analyse",
+        collapsed=False,
+        styles={"background": "white", "border-radius": "12px"}
+    )
+    chart = pn.Column(
+        create_analytics_chart,
+        styles={"background": "white", "padding": "16px", "border-radius": "12px",
+                "border": "1px solid #e2e8f0"},
+        sizing_mode="stretch_width", margin=(0, 0, 12, 0)
+    )
+    note = pn.pane.Markdown(
+        "**Conseil :** choisissez le jeu de données, le type de graphique, la catégorie et le carburant. "
+        "Le graphique se met à jour automatiquement.",
+        styles={"color": "#526174"}
+    )
+    return pn.Column(hero, controls, chart, note, sizing_mode="stretch_width", margin=(0, 0, 18, 0))
+
+# ---------------------------------------------------------------------------
+
+mapping = { 
+    "Page1": CreatePage1(),
+    "Page2": CreatePage2(),
+    "Page3": CreatePage3(),
+    "Page4": CreatePage4(),
+    "Page5": CreatePage5(),
+    "Page6": CreatePage6(),
+    "Page7": CreatePage7(),
+    "Page8": CreatePage8(),
+    "Page9": CreatePage9(),
+    "Page10": CreatePage10(),
+}
+
+logout   =  pn.widgets.Button(name="Déconnexion", button_type="warning", icon="clipboard-data", styles={"width": "100%"})
+logout.js_on_click(code="""window.location.href = './logout'""")
+
+sidebar = pn.Column(pn.pane.Markdown("## Menu"), show_dashboard, show_importation_marketeur, show_importation_annuelle, show_distribution_marketeur, show_distribution_annuelle, insert_general, insert_importation, insert_distribution, insert_username, show_UserName, logout, styles={"width": "100%", "padding": "15px"})
+main_area = pn.Column(mapping['Page1'], styles={"width":"100%"})
+
+template = pn.template.BootstrapTemplate(
+    title=f"""Bienvenue {pn.state.user}""",
+    sidebar=[sidebar],
+    main=[main_area],
+    # footer=[sidebar],
+    header_background="#14263d",
+    site="Société Centrafricaine de stockage des Produits Pétroliers",  logo="logo.png",
+    sidebar_width=250,
+    busy_indicator=None,
+)
+
+template.servable()
