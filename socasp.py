@@ -41,7 +41,7 @@ df_provenance = pd.read_excel("./type/provenance_data.xlsx")
 df_marketeur = pd.read_excel("./type/marketeur_data.xlsx")
 
 df_importation = df_importation[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
-df_distribution = df_distribution[['Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
+df_distribution = df_distribution[[col for col in ['No', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil'] if col in df_distribution.columns]]
 
 df = df[[ 'No', 'Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
 
@@ -49,6 +49,21 @@ df['Annee'] = df['Annee'].astype("str")
 
 df_temp = df[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
 df_temp['Annee'] = df_temp['Annee'].astype("str")
+
+# Default date range spans the available records so the initial view includes all data.
+def _dataset_date_bounds(data):
+    years = pd.to_numeric(data["Annee"], errors="coerce").dropna()
+    months = pd.to_numeric(data["Mois"], errors="coerce").dropna() if "Mois" in data.columns else pd.Series(dtype=float)
+    if years.empty:
+        return dt.date(2000, 1, 1), dt.date.today()
+    min_year, max_year = int(years.min()), int(years.max())
+    min_month = int(months.min()) if not months.empty else 1
+    max_month = int(months.max()) if not months.empty else 12
+    return dt.date(min_year, min_month, 1), dt.date(max_year, max_month, 28)
+
+IMPORTATION_DATE_MIN, IMPORTATION_DATE_MAX = _dataset_date_bounds(df_importation)
+DISTRIBUTION_DATE_MIN, DISTRIBUTION_DATE_MAX = _dataset_date_bounds(df_distribution)
+
 
 
 #########################################################################################################################################################
@@ -69,11 +84,11 @@ cancel_user.on_click(lambda event: cancelUsername())
 
 #########################################################################################################################################################
 
-date_distribution_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=dt.date(2000, 1, 1))
-date_distribution_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=dt.date(2000, 1, 1))
+date_distribution_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=DISTRIBUTION_DATE_MIN)
+date_distribution_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=DISTRIBUTION_DATE_MAX)
 
-date_distribution_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=dt.date(2000, 1, 1))
-date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=dt.date(2000, 1, 1))
+date_distribution_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=DISTRIBUTION_DATE_MIN)
+date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=DISTRIBUTION_DATE_MAX)
 
 #########################################################################################################################################################
 
@@ -92,17 +107,17 @@ insert_distribution.on_click(lambda event: show_page("Page6"))
 
 unique_annee_importation =  list(df_importation['Annee'].unique())
 
-select_annee_importation_start = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
-select_annee_importation_end = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
+select_annee_importation_start = pn.widgets.Select(name="Année Importation", options=["All"] + unique_annee_importation, value="All")
+select_annee_importation_end = pn.widgets.Select(name="Année Importation", options=["All"] + unique_annee_importation, value="All")
 
 
 unique_marketeur_importation =  list(df_importation['Marketeur'].unique())
 
-select_marketeur_importation_start = pn.widgets.Select(name="Marketeur Importation", options=unique_marketeur_importation)
-select_marketeur_importation_end = pn.widgets.Select(name="Marketeur Importation", options=unique_marketeur_importation)
+select_marketeur_importation_start = pn.widgets.Select(name="Marketeur Importation", options=["All"] + unique_marketeur_importation, value="All")
+select_marketeur_importation_end = pn.widgets.Select(name="Marketeur Importation", options=["All"] + unique_marketeur_importation, value="All")
 
-select_marketeur_annee = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
-select_marketeur_end = pn.widgets.Select(name="Année Importation", options=unique_annee_importation)
+select_marketeur_annee = pn.widgets.Select(name="Année Importation", options=["All"] + unique_annee_importation, value="All")
+select_marketeur_end = pn.widgets.Select(name="Année Importation", options=["All"] + unique_annee_importation, value="All")
 
 #########################################################################################################################################################
 
@@ -313,11 +328,15 @@ insert_username.on_click(lambda event: show_page("Page8"))
 
 
 unique_user =  list(df_user['Hote'].unique())
-select_user = pn.widgets.Select(name="Hote", options=unique_user)
+select_user = pn.widgets.Select(name="Hote", options=["All"] + unique_user, value="All")
 
-@pn.depends(symbol_user = select_user)
+@pn.depends(symbol_user=select_user)
 def create_username(symbol_user):
-    return df_user[df_user['Hote'] == symbol_user].hvplot.table(width=960)
+    if symbol_user == "All":
+        data = df_user
+    else:
+        data = df_user[df_user["Hote"] == symbol_user]
+    return data.hvplot.table(width=960)
 
 #########################################################################################################################################################
 
@@ -398,10 +417,10 @@ unique_marketeur =  list(df_importation['Marketeur'].unique())
 unique_annee =  list(df_importation['Annee'].unique())
 
 select_annee_importation = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
-select_importation_marketeur = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+select_importation_marketeur = pn.widgets.Select(name="Marketeur", options=["All"] + unique_marketeur, value="All")
 
-select_importation_annee_start = pn.widgets.Select(name="Annee", options=unique_annee)
-select_importation_annee_end = pn.widgets.Select(name="Annee", options=unique_annee)
+select_importation_annee_start = pn.widgets.Select(name="Annee", options=["All"] + unique_annee, value="All")
+select_importation_annee_end = pn.widgets.Select(name="Annee", options=["All"] + unique_annee, value="All")
 
 
 def betweenDateImportation():
@@ -427,26 +446,26 @@ def betweenDateImportation():
 #########################################################################################################################################################
 
 def betweenDateImportationMarketeur():
+    """Return all importation rows inside the selected date range."""
+    data = df.copy()
+    data["Annee"] = pd.to_numeric(data["Annee"], errors="coerce")
+    data["Mois"] = pd.to_numeric(data["Mois"], errors="coerce")
+    start_date = date_importation_annee_marketeur_start.value
+    end_date = date_importation_annee_marketeur_end.value
+    if start_date is not None:
+        data = data[(data["Annee"] > start_date.year) |
+                    ((data["Annee"] == start_date.year) & (data["Mois"] >= start_date.month))]
+    if end_date is not None:
+        data = data[(data["Annee"] < end_date.year) |
+                    ((data["Annee"] == end_date.year) & (data["Mois"] <= end_date.month))]
+    data["Annee"] = data["Annee"].astype("Int64").astype(str)
+    return data
 
-    try:
 
-        importation_annee_start = date_importation_annee_marketeur_start.value.timetuple().tm_year
-        importation_annee_end   = date_importation_annee_marketeur_end.value.timetuple().tm_year
-        
-        importation_mois_start = date_importation_annee_marketeur_start.value.month
-        importation_mois_end   = date_importation_annee_marketeur_end.value.month
+def betweenDateImportationAnnee():
+    """Return all importation rows; the dropdowns apply optional year bounds."""
+    return df.copy()
 
-        connect.betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_socasp, importation_annee_start, importation_annee_end)
-
-        df_importation_between = pd.read_excel("./data/between_importation_annee.xlsx")
-
-        df_importation_between = df_importation_between[['No', 'Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
-        df_importation_between['Annee'] = df_importation_between['Annee'].astype("str")
-
-        return df_importation_between
-
-    except Exception as Ex:
-        print("%s"%(Ex))
 
 
 def betweenDateImportationAnnee():
@@ -471,51 +490,36 @@ unique_marketeur =  list(df_distribution['Marketeur'].unique())
 unique_annee =  list(df_distribution['Annee'].unique())
 
 select_annee_distribution = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
-select_distribution_marketeur = pn.widgets.Select(name="Marketeur", options=unique_marketeur)
+select_distribution_marketeur = pn.widgets.Select(name="Marketeur", options=["All"] + unique_marketeur, value="All")
 
-select_distribution_annee_start = pn.widgets.Select(name="Annee", options=unique_annee)
-select_distribution_annee_end = pn.widgets.Select(name="Annee", options=unique_annee)
+select_distribution_annee_start = pn.widgets.Select(name="Annee", options=unique_annee, value=unique_annee[0] if unique_annee else None)
+select_distribution_annee_end = pn.widgets.Select(name="Annee", options=unique_annee, value=unique_annee[-1] if unique_annee else None)
 
 
 #########################################################################################################################################################
 
 def betweenDateDistributionAnnee():
-
-    try:
-
-        distribution_annee_start = select_distribution_annee_start.value
-        distribution_annee_end   = select_distribution_annee_end.value
-
-        connect.betweenDistributionAnnee(host_socasp, user_socasp, password_socasp, database_socasp, distribution_annee_start, distribution_annee_end)
-        df_distribution_between = pd.read_excel('./data/between_distribution_annee_one_two.xlsx')
-
-        df_distribution_between = df_distribution_between[['No', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
-
-        return df_distribution_between
-
-    except Exception as Ex:
-        print("%s"%(Ex))
+    """Return all distribution rows; the dropdowns apply optional year bounds."""
+    return df_distribution.copy()
 
 
 
 def betweenDateDistributionMarketeur():
+    """Return all distribution rows inside the selected date range."""
+    data = df_distribution.copy()
+    data["Annee"] = pd.to_numeric(data["Annee"], errors="coerce")
+    data["Mois"] = pd.to_numeric(data["Mois"], errors="coerce")
+    start_date = date_distribution_annee_marketeur_start.value
+    end_date = date_distribution_annee_marketeur_end.value
+    if start_date is not None:
+        data = data[(data["Annee"] > start_date.year) |
+                    ((data["Annee"] == start_date.year) & (data["Mois"] >= start_date.month))]
+    if end_date is not None:
+        data = data[(data["Annee"] < end_date.year) |
+                    ((data["Annee"] == end_date.year) & (data["Mois"] <= end_date.month))]
+    data["Annee"] = data["Annee"].astype("Int64").astype(str)
+    return data
 
-    try:
-
-        distribution_annee_start = date_distribution_annee_marketeur_start.value.timetuple().tm_year
-        distribution_annee_end   = date_distribution_annee_marketeur_end.value.timetuple().tm_year
-        
-        connect.betweenDistributionMarketeur(host_socasp, user_socasp, password_socasp, database_socasp, distribution_annee_start, distribution_annee_end)
-
-        df_distribution_between = pd.read_excel('./data/between_distribution_marketeur.xlsx')
-
-        df_distribution_between = df_distribution_between[['No', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
-        df_distribution_between['Annee'] = df_distribution_between['Annee'].astype("str")
-
-        return df_distribution_between
-
-    except Exception as Ex:
-        print("%s"%(Ex))
 
 
 #########################################################################################################################################################
@@ -525,7 +529,10 @@ def betweenDateDistributionMarketeur():
 
 def create_distribution_annee_marketeur(symbol_marketeur_distribution):
     df_distribution_year_start_end_marketeur = betweenDateDistributionMarketeur()
-    return df_distribution_year_start_end_marketeur[df_distribution_year_start_end_marketeur['Marketeur']  == symbol_marketeur_distribution].hvplot.table(width=960)
+    data = df_distribution_year_start_end_marketeur
+    if symbol_marketeur_distribution != "All":
+        data = data[data["Marketeur"] == symbol_marketeur_distribution]
+    return data.hvplot.table(width=960)
 
 
 #########################################################################################################################################################
@@ -597,7 +604,10 @@ def exportImportationMarketeur():
 
     df_importation_marketeur = betweenDateImportationMarketeur()
 
-    df_importation_marketeur = df_importation_marketeur[(df_importation_marketeur['Marketeur'] == select_importation_marketeur.value)]
+    if select_importation_marketeur.value != "All":
+        df_importation_marketeur = df_importation_marketeur[
+            df_importation_marketeur["Marketeur"] == select_importation_marketeur.value
+        ]
     df_pivot_marketeur_socasp = carburantPivotImportationMarketeur(df_importation_marketeur)
 
 
@@ -626,7 +636,10 @@ ExportBox_importation_annee.on_click(lambda event: exportImportationAnnee())
 def exportDistributionMarketeur():
 
     df_distribution_marketeur = betweenDateDistributionMarketeur()
-    df_distribution_marketeur = df_distribution_marketeur[(df_distribution_marketeur['Marketeur'] == select_distribution_marketeur.value)]
+    if select_distribution_marketeur.value != "All":
+        df_distribution_marketeur = df_distribution_marketeur[
+            df_distribution_marketeur["Marketeur"] == select_distribution_marketeur.value
+        ]
     df_pivot_marketeur_socasp = carburantPivotDistributionMarketeur(df_distribution_marketeur)
 
     fichier_marketeur = f"./excel/distribution_produit/marketeur/{year}-{month}-{date}-{hour}-{minute}-{second}_distribution_{select_distribution_marketeur.value}.xlsx"
@@ -655,7 +668,14 @@ ExportBox_distribution_annee.on_click(lambda event: exportDistributionAnnee())
 @pn.depends(symbol_annee_distribution = select_distribution_annee_end)
 def create_annee_distribution(symbol_annee_distribution):
     df_distribution_year_start_end = betweenDateDistributionAnnee()
-    return df_distribution_year_start_end[(df_distribution_year_start_end['Annee']  >= select_distribution_annee_start.value) & (df_distribution_year_start_end['Annee']  <= symbol_annee_distribution)].hvplot.table(width=960)
+    data = df_distribution_year_start_end.copy()
+    years = pd.to_numeric(data["Annee"], errors="coerce")
+    if select_distribution_annee_start.value != "All":
+        data = data[years >= float(select_distribution_annee_start.value)]
+        years = pd.to_numeric(data["Annee"], errors="coerce")
+    if symbol_annee_distribution != "All":
+        data = data[years <= float(symbol_annee_distribution)]
+    return data.hvplot.table(width=960)
 
 
 ExportBox_marketeur = pn.widgets.Button(name="Sauvegarde Annuelle", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
@@ -674,17 +694,17 @@ insert_general.on_click(lambda event: show_page("Page9"))
 
 #########################################################################################################################################################
 
-date_importation_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=dt.date(2000, 1, 1))
-date_importation_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=dt.date(2000, 1, 1))
+date_importation_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=IMPORTATION_DATE_MIN)
+date_importation_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=IMPORTATION_DATE_MAX)
 
-date_importation_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=dt.date(2000, 1, 1))
-date_importation_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=dt.date(2000, 1, 1))
+date_importation_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=IMPORTATION_DATE_MIN)
+date_importation_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=IMPORTATION_DATE_MAX)
 
-date_distribution_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=dt.date(2000, 1, 1))
-date_distribution_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=dt.date(2000, 1, 1))
+date_distribution_marketeur_annee_start = pn.widgets.DatePicker(name='Date du Debut', value=DISTRIBUTION_DATE_MIN)
+date_distribution_marketeur_annee_end = pn.widgets.DatePicker(name='Date de la Fin', value=DISTRIBUTION_DATE_MAX)
 
-date_distribution_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=dt.date(2000, 1, 1))
-date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=dt.date(2000, 1, 1))
+date_distribution_annee_marketeur_start = pn.widgets.DatePicker(name='Date du Debut par Marketeur', value=DISTRIBUTION_DATE_MIN)
+date_distribution_annee_marketeur_end   = pn.widgets.DatePicker(name='Date de la Fin par Marketeur', value=DISTRIBUTION_DATE_MAX)
 
 #########################################################################################################################################################
 
@@ -730,14 +750,24 @@ def createUsername():
 @pn.depends(symbol_marketeur_importation = select_importation_marketeur)
 def create_importation_annee_marketeur(symbol_marketeur_importation):
     df_importation_year_start_end_marketeur = betweenDateImportationMarketeur()
-    return df_importation_year_start_end_marketeur[df_importation_year_start_end_marketeur['Marketeur']  == symbol_marketeur_importation].hvplot.table(width=960)
+    data = df_importation_year_start_end_marketeur
+    if symbol_marketeur_importation != "All":
+        data = data[data["Marketeur"] == symbol_marketeur_importation]
+    return data.hvplot.table(width=960)
 
 
 
 @pn.depends(symbol_annee_importation = select_importation_annee_end)
 def create_annee_importation(symbol_annee_importation):
     df_importation_year_start_end = betweenDateImportationAnnee()
-    return df_importation_year_start_end[(df_importation_year_start_end['Annee']  >= select_importation_annee_start.value) & (df_importation_year_start_end['Annee']  <= symbol_annee_importation)].hvplot.table(width=960)
+    data = df_importation_year_start_end.copy()
+    years = pd.to_numeric(data["Annee"], errors="coerce")
+    if select_importation_annee_start.value != "All":
+        data = data[years >= float(select_importation_annee_start.value)]
+        years = pd.to_numeric(data["Annee"], errors="coerce")
+    if symbol_annee_importation != "All":
+        data = data[years <= float(symbol_annee_importation)]
+    return data.hvplot.table(width=960)
 
 
 #########################################################################################################################################################
@@ -1127,18 +1157,18 @@ analytics_chart_type = pn.widgets.Select(
 )
 analytics_category = pn.widgets.Select(
     name="Catégorie",
-    options=["Marketeur", "Annee", "Mois", "Origine", "Provenance"],
-    value="Marketeur"
+    options=["All", "Marketeur", "Annee", "Mois", "Origine", "Provenance"],
+    value="All"
 )
 analytics_measure = pn.widgets.Select(
     name="Mesure / carburant",
-    options=["Super", "JetA1", "Petrole", "Gazoil"],
-    value="Super"
+    options=["All", "Super", "JetA1", "Petrole", "Gazoil"],
+    value="All"
 )
 analytics_x_axis = pn.widgets.Select(
     name="Axe X (nuage de points)",
-    options=["Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"],
-    value="Annee"
+    options=["All", "Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"],
+    value="All"
 )
 
 GRAPH_EXPLANATIONS = {
@@ -1164,6 +1194,13 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
     data = _analytics_frame(dataset)
     if data.empty:
         return pn.pane.Alert("Aucune donnée disponible pour ce jeu de données.", alert_type="warning")
+
+    if measure == "All":
+        measure = "Super"
+    if category == "All":
+        category = "Marketeur" if "Marketeur" in data.columns else "Annee"
+    if x_axis == "All":
+        x_axis = "Annee"
 
     if measure not in data.columns:
         return pn.pane.Alert(f"La colonne « {measure} » est absente du jeu de données.", alert_type="warning")
