@@ -1215,7 +1215,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
 
     if chart_type == "hist":
         plot = data.hvplot.hist(
-            y=measure, bins=20, height=400, width=800, responsive=False,
+            y=measure, bins=20, height=350, width=600, responsive=False,
             title=f"Distribution des valeurs — {measure}",
             xlabel=f"Valeur de {measure}", ylabel="Fréquence", grid=True,
             color="#17148E"
@@ -1228,7 +1228,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         if scatter_data.empty:
             return pn.pane.Alert("Aucune paire de valeurs numériques pour le nuage de points.", alert_type="warning")
         plot = scatter_data.hvplot.scatter(
-            x=x_axis, y=measure, height=400, width=800, responsive=False,
+            x=x_axis, y=measure, height=350, width=600, responsive=False,
             title=f"{measure} en fonction de {x_axis}",
             xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7,
             color="#17148E"
@@ -1243,7 +1243,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             return pn.pane.Alert("Aucune donnée disponible pour construire la carte de chaleur.", alert_type="warning")
         plot = heat_data.hvplot.heatmap(
             x=heat_x, y="Annee", C=measure, aggregate="sum",
-            height=400, width=800, responsive=False,
+            height=350, width=600, responsive=False,
             title=f"Carte de chaleur — {measure} par {heat_x} et année",
             xlabel=heat_x, ylabel="Année", colorbar=True,
             cmap=["#17148E", "#17148E"]
@@ -1264,11 +1264,11 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         if grouped.empty:
             return pn.pane.Alert("Aucune donnée à afficher avec les paramètres sélectionnés.", alert_type="warning")
 
-        common = dict(height=400, width=800, responsive=False, title=f"{measure} par {category}", grid=True)
+        common = dict(height=350, width=600, responsive=False, title=f"{measure} par {category}", grid=True)
         if chart_type == "pie":
             plot = grouped.hvplot.pie(
                 y=measure, by=category, title=f"Répartition de {measure} par {category}",
-                height=400, width=800, responsive=False, legend="right"
+                height=350, width=600, responsive=False, legend="right"
             )
         elif chart_type == "bar":
             plot = grouped.hvplot.bar(
@@ -1294,7 +1294,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             )
         elif chart_type == "box":
             plot = data.hvplot.box(
-                y=measure, by=category, height=400, width=800, responsive=False,
+                y=measure, by=category, height=350, width=600, responsive=False,
                 title=f"Dispersion de {measure} par {category}",
                 xlabel=category, ylabel=f"Volume de {measure}", grid=True,
                 color="#17148E"
@@ -1321,7 +1321,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         sizing_mode="fixed"
     )
     return pn.Row(
-        pn.Column(plot, sizing_mode="fixed", min_width=800, width=800),
+        pn.Column(plot, sizing_mode="fixed", min_width=600, width=600),
         explanation_card,
         sizing_mode="stretch_width",
         min_height=440,
