@@ -17,6 +17,8 @@ from tkinter.filedialog import asksaveasfile
 import ctypes
 import pandas as pd
 import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
 
 # import create_user as nomusername
 import connexion as connect
@@ -39,6 +41,131 @@ df_user = pd.read_excel("./data/utilisateurmotsdepasse.xlsx")
 df_origine = pd.read_excel("./type/origine_data.xlsx")
 df_provenance = pd.read_excel("./type/provenance_data.xlsx")
 df_marketeur = pd.read_excel("./type/marketeur_data.xlsx")
+
+# ---------------------------------------------------------------------------
+# Initialize SOCASP lookup tables automatically at startup.
+# Works with existing tables whose text columns may be named Origine,
+# Marketeur, Provenance, nom, ville, etc. Values are checked before insert,
+# so restarting the application does not duplicate existing entries.
+# ---------------------------------------------------------------------------
+def initialize_socasp_lookup_tables():
+    connection = None
+    cursor = None
+
+    def get_text_column(cursor, table_name, candidates):
+        """Find an existing text column without assuming the table uses 'nom'."""
+        cursor.execute(f"SHOW COLUMNS FROM `{table_name}`")
+        columns = [row[0] for row in cursor.fetchall()]
+        lower_map = {column.lower(): column for column in columns}
+
+        for candidate in candidates:
+            if candidate.lower() in lower_map:
+                return lower_map[candidate.lower()]
+
+        raise RuntimeError(
+            f"La table MySQL '{table_name}' existe, mais aucune colonne "
+            f"compatible n'a été trouvée. Colonnes existantes : {columns}. "
+            f"Colonnes recherchées : {candidates}. "
+            "Vérifiez la structure de cette table."
+        )
+
+    def clean_values(dataframe, column):
+        if column not in dataframe.columns:
+            raise ValueError(
+                f"La colonne '{column}' est absente du fichier Excel correspondant."
+            )
+        values = dataframe[column].dropna().astype(str).str.strip()
+        return sorted({value for value in values if value})
+
+    def insert_if_missing(cursor, table_name, column_name, value):
+        # Identifiers come only from SHOW COLUMNS and fixed table names above.
+        query = (
+            f"SELECT 1 FROM `{table_name}` "
+            f"WHERE TRIM(`{column_name}`) = %s LIMIT 1"
+        )
+        cursor.execute(query, (value,))
+        if cursor.fetchone() is None:
+            cursor.execute(
+                f"INSERT INTO `{table_name}` (`{column_name}`) VALUES (%s)",
+                (value,),
+            )
+
+    try:
+        connection = mysql.connector.connect(
+            host=host_socasp,
+            user=user_socasp,
+            password=password_socasp,
+            database=database_socasp,
+        )
+        cursor = connection.cursor()
+
+        # Create these tables only when they do not already exist.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS origine (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                nom VARCHAR(100) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_origine_nom (nom)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS marketeur (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                nom VARCHAR(150) NOT NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_marketeur_nom (nom)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS provenance (
+                id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                ville VARCHAR(150) NOT NULL,
+                pays VARCHAR(150) NULL,
+                PRIMARY KEY (id),
+                UNIQUE KEY uq_provenance_ville_pays (ville, pays)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """)
+
+        # Detect the actual text column in each existing table.
+        origine_col = get_text_column(
+            cursor, "origine", ["nom", "Origine", "type_origine", "libelle"]
+        )
+        marketeur_col = get_text_column(
+            cursor, "marketeur", ["nom", "Marketeur", "marqueteur", "libelle"]
+        )
+        provenance_col = get_text_column(
+            cursor, "provenance", ["ville", "Provenance", "nom", "libelle"]
+        )
+
+        for value in clean_values(df_origine, "Origine"):
+            insert_if_missing(cursor, "origine", origine_col, value)
+
+        for value in clean_values(df_marketeur, "Marketeur"):
+            insert_if_missing(cursor, "marketeur", marketeur_col, value)
+
+        for value in clean_values(df_provenance, "Provenance"):
+            insert_if_missing(cursor, "provenance", provenance_col, value)
+
+        connection.commit()
+        print(
+            "SOCASP : tables de référence vérifiées et initialisées "
+            "sans réinsérer les valeurs existantes."
+        )
+
+    except Exception as exc:
+        if connection and connection.is_connected():
+            connection.rollback()
+        print(f"Erreur d'initialisation des tables de référence SOCASP : {exc}")
+        raise
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+
+# Automatic initialization each time Panel starts this application.
+initialize_socasp_lookup_tables()
 
 df_importation = df_importation[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
 df_distribution = df_distribution[[col for col in ['No', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil'] if col in df_distribution.columns]]
@@ -336,7 +463,7 @@ def create_username(symbol_user):
         data = df_user
     else:
         data = df_user[df_user["Hote"] == symbol_user]
-    return data.hvplot.table(width=960)
+    return data.hvplot.table(width=1050)
 
 #########################################################################################################################################################
 
@@ -532,7 +659,7 @@ def create_distribution_annee_marketeur(symbol_marketeur_distribution):
     data = df_distribution_year_start_end_marketeur
     if symbol_marketeur_distribution != "All":
         data = data[data["Marketeur"] == symbol_marketeur_distribution]
-    return data.hvplot.table(width=960)
+    return data.hvplot.table(width=1050)
 
 
 #########################################################################################################################################################
@@ -675,7 +802,7 @@ def create_annee_distribution(symbol_annee_distribution):
         years = pd.to_numeric(data["Annee"], errors="coerce")
     if symbol_annee_distribution != "All":
         data = data[years <= float(symbol_annee_distribution)]
-    return data.hvplot.table(width=960)
+    return data.hvplot.table(width=1050)
 
 
 ExportBox_marketeur = pn.widgets.Button(name="Sauvegarde Annuelle", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
@@ -753,7 +880,7 @@ def create_importation_annee_marketeur(symbol_marketeur_importation):
     data = df_importation_year_start_end_marketeur
     if symbol_marketeur_importation != "All":
         data = data[data["Marketeur"] == symbol_marketeur_importation]
-    return data.hvplot.table(width=960)
+    return data.hvplot.table(width=1050)
 
 
 
@@ -767,7 +894,7 @@ def create_annee_importation(symbol_annee_importation):
         years = pd.to_numeric(data["Annee"], errors="coerce")
     if symbol_annee_importation != "All":
         data = data[years <= float(symbol_annee_importation)]
-    return data.hvplot.table(width=960)
+    return data.hvplot.table(width=1050)
 
 
 #########################################################################################################################################################
@@ -1143,10 +1270,11 @@ analytics_dataset = pn.widgets.RadioButtonGroup(
 analytics_chart_type = pn.widgets.Select(
     name="Type de graphique",
     options={
-        "Secteurs (Pie)": "pie",
         "Barres verticales (Bar)": "bar",
         "Barres horizontales (Barh)": "barh",
         "Nuage de points (Scatter)": "scatter",
+        "Nuage de points avec clustering": "scatter_cluster",
+        "Nuage de points avec polynôme": "scatter_poly",
         "Histogramme (Hist)": "hist",
         "Courbe (Line)": "line",
         "Carte de chaleur (Heatmap)": "heatmap",
@@ -1160,27 +1288,55 @@ analytics_category = pn.widgets.Select(
     options=["All", "Marketeur", "Annee", "Mois", "Origine", "Provenance"],
     value="All"
 )
+FUEL_OPTIONS = ["Super", "Petrole", "JetA1", "Gazoil"]
+
 analytics_measure = pn.widgets.Select(
     name="Mesure / carburant",
-    options=["All", "Super", "JetA1", "Petrole", "Gazoil"],
-    value="All"
+    options=FUEL_OPTIONS,
+    value="Super"
 )
 analytics_x_axis = pn.widgets.Select(
     name="Axe X (nuage de points)",
-    options=["All", "Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"],
-    value="All"
+    options=FUEL_OPTIONS,
+    value="Petrole"
 )
+
+# Keep the two fuel selections different. When one dropdown changes, remove
+# that fuel from the other dropdown's available options.
+def _sync_fuel_dropdowns(event=None):
+    x_value = analytics_x_axis.value
+    y_value = analytics_measure.value
+
+    if x_value == y_value:
+        alternatives = [fuel for fuel in FUEL_OPTIONS if fuel != x_value]
+        if alternatives:
+            analytics_measure.value = alternatives[0]
+
+    analytics_x_axis.options = [
+        fuel for fuel in FUEL_OPTIONS if fuel != analytics_measure.value
+    ]
+    analytics_measure.options = [
+        fuel for fuel in FUEL_OPTIONS if fuel != analytics_x_axis.value
+    ]
+
+analytics_x_axis.param.watch(_sync_fuel_dropdowns, "value")
+analytics_measure.param.watch(_sync_fuel_dropdowns, "value")
+_sync_fuel_dropdowns()
+
 
 GRAPH_EXPLANATIONS = {
     "pie": "### Graphique en secteurs\nMontre la part de chaque catégorie dans le total sélectionné. Utile pour comparer la contribution des marketeurs ou des origines au volume total du carburant choisi.",
     "bar": "### Barres verticales\nCompare les volumes entre catégories. Les barres les plus hautes correspondent aux catégories dont le volume cumulé est le plus important.",
     "barh": "### Barres horizontales\nCompare les volumes par catégorie dans une présentation horizontale, pratique lorsque les noms des marketeurs ou des origines sont longs.",
-    "scatter": "### Nuage de points\nExamine la relation entre deux variables numériques, par exemple l'année et le volume. Chaque point représente une observation ; une tendance éventuelle peut suggérer une relation entre les variables.",
+    "scatter": "Nuage de points\nCompare les importations et distributions des carburants sélectionnés pour repérer leur relation.",
     "hist": "### Histogramme\nPrésente la distribution des valeurs du carburant choisi. Il aide à repérer les valeurs fréquentes, la dispersion et d'éventuelles valeurs atypiques.",
     "line": "### Courbe d'évolution\nVisualise l'évolution du volume selon la catégorie choisie. Pour une lecture temporelle, sélectionnez l'année ou le mois comme catégorie.",
     "heatmap": "### Carte de chaleur\nCompare les volumes selon la catégorie et l'année à l'aide d'une échelle de couleurs. Les couleurs les plus intenses signalent les combinaisons avec les volumes les plus élevés.",
     "area": "### Graphique en aires\nMontre l'évolution du volume et met visuellement en évidence son ampleur au fil des catégories ou des périodes.",
     "box": "### Boîte à moustaches\nRésume la distribution des volumes par catégorie : médiane, dispersion et valeurs potentiellement atypiques. Ce graphique est utile pour comparer la variabilité entre groupes."
+    ,
+    "scatter_cluster": "Nuage de points avec clustering\nRegroupe les observations selon leurs valeurs d’importation et de distribution afin d’identifier des profils similaires.",
+    "scatter_poly": "Nuage de points avec polynôme\nAjoute une courbe de tendance polynomiale de degré 2 pour illustrer la relation entre les importations et les distributions des carburants sélectionnés."
 }
 
 # ---------------------------------------------------------------------------
@@ -1214,7 +1370,7 @@ def create_fuel_kpis(dataset):
                     sizing_mode="stretch_width",
                 ),
                 pn.pane.Markdown(
-                    f"<div style='font-size:25px;font-weight:750;color:#17148E'>{_format_kpi_value(total)}</div>",
+                    f"<div style='font-size:clamp(14px, 1.5vw, 22px);font-weight:750;color:#17148E;line-height:1.2;overflow-wrap:anywhere'>{_format_kpi_value(total)}</div>",
                     sizing_mode="stretch_width",
                 ),
                 pn.pane.Markdown(
@@ -1224,13 +1380,15 @@ def create_fuel_kpis(dataset):
                 styles={
                     "background": "#ffffff",
                     "border": "1px solid #17148E",
-                    "border-radius": "12px",
-                    "padding": "14px 16px",
+                    "border-radius": "10px",
+                    "padding": "clamp(6px, 1vw, 12px)",
                     "box-shadow": "0 3px 12px rgba(0,0,0,0.05)",
+                    "min-width": "0",
+                    "flex": "1 1 0",
+                    "overflow-wrap": "anywhere",
                 },
                 sizing_mode="stretch_width",
                 min_width=0,
-                width=200,
             )
         )
 
@@ -1245,7 +1403,7 @@ def create_fuel_kpis(dataset):
                 sizing_mode="stretch_width",
             ),
             pn.pane.Markdown(
-                f"<div style='font-size:25px;font-weight:750;color:#17148E'>{_format_kpi_value(total_all)}</div>",
+                f"<div style='font-size:clamp(14px, 1.5vw, 22px);font-weight:750;color:#17148E;line-height:1.2;overflow-wrap:anywhere'>{_format_kpi_value(total_all)}</div>",
                 sizing_mode="stretch_width",
             ),
             pn.pane.Markdown(
@@ -1255,15 +1413,27 @@ def create_fuel_kpis(dataset):
             styles={
                 "background": "#f5f5ff",
                 "border": "1px solid #17148E",
-                "border-radius": "12px",
-                "padding": "14px 16px",
+                "border-radius": "10px",
+                "padding": "clamp(6px, 1vw, 12px)",
                 "box-shadow": "0 3px 12px rgba(0,0,0,0.05)",
+                "min-width": "0",
+                "flex": "1 1 0",
+                "overflow-wrap": "anywhere",
             },
             sizing_mode="stretch_width",
-            min_width=180,
+            min_width=0,
         )
     )
-    return pn.FlexBox(*cards, sizing_mode="stretch_width", flex_wrap="nowrap", gap="12px", align_items="stretch")
+    # Keep all KPI cards horizontal and distribute them across the full window.
+    # Flex items shrink equally so fixed card widths cannot cause overflow.
+    return pn.FlexBox(
+        *cards,
+        sizing_mode="stretch_width",
+        flex_wrap="nowrap",
+        gap="8px",
+        align_items="stretch",
+        styles={"width": "100%", "min-width": "0", "overflow": "hidden"},
+    )
 
 
 @pn.depends(
@@ -1278,12 +1448,8 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
     if data.empty:
         return pn.pane.Alert("Aucune donnée disponible pour ce jeu de données.", alert_type="warning")
 
-    if measure == "All":
-        measure = "Super"
     if category == "All":
         category = "Marketeur" if "Marketeur" in data.columns else "Annee"
-    if x_axis == "All":
-        x_axis = "Annee"
 
     if measure not in data.columns:
         return pn.pane.Alert(f"La colonne « {measure} » est absente du jeu de données.", alert_type="warning")
@@ -1297,25 +1463,122 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
     plot = None
 
     if chart_type == "hist":
+        # Choose a data-adaptive number of bins using the Freedman–Diaconis rule.
+        # Fall back to Sturges when the IQR is zero or the sample is very small.
+        hist_values = pd.to_numeric(data[measure], errors="coerce").replace(
+            [np.inf, -np.inf], np.nan
+        ).dropna()
+        n_values = len(hist_values)
+        if n_values <= 1:
+            hist_bins = 1
+        else:
+            q1, q3 = hist_values.quantile([0.25, 0.75])
+            iqr = q3 - q1
+            data_range = hist_values.max() - hist_values.min()
+            if iqr > 0 and data_range > 0:
+                bin_width = 2 * iqr / (n_values ** (1 / 3))
+                estimated_bins = int(np.ceil(data_range / bin_width)) if bin_width > 0 else 0
+            else:
+                estimated_bins = int(np.ceil(np.log2(n_values) + 1))
+            # Avoid unreadable histograms with too few or too many bins.
+            hist_bins = max(5, min(50, estimated_bins or 10))
+
         plot = data.hvplot.hist(
-            y=measure, bins=20, height=350, width=600, responsive=False,
-            title=f"Distribution des valeurs — {measure}",
+            y=measure, bins=hist_bins, height=350, width=720, responsive=False,
+            title=f"Distribution des valeurs — {measure} ({hist_bins} classes)",
             xlabel=f"Valeur de {measure}", ylabel="Fréquence", grid=True,
             color="#17148E"
         )
-    elif chart_type == "scatter":
+    elif chart_type in ("scatter", "scatter_cluster", "scatter_poly"):
         if x_axis not in data.columns:
             return pn.pane.Alert(f"La colonne « {x_axis} » est absente.", alert_type="warning")
-        data[x_axis] = pd.to_numeric(data[x_axis], errors="coerce")
-        scatter_data = data.dropna(subset=[x_axis, measure])
+
+        scatter_data = data.copy()
+        scatter_data[x_axis] = pd.to_numeric(scatter_data[x_axis], errors="coerce")
+        scatter_data[measure] = pd.to_numeric(scatter_data[measure], errors="coerce")
+        scatter_data = scatter_data.replace([np.inf, -np.inf], np.nan).dropna(subset=[x_axis, measure])
+
         if scatter_data.empty:
             return pn.pane.Alert("Aucune paire de valeurs numériques pour le nuage de points.", alert_type="warning")
-        plot = scatter_data.hvplot.scatter(
-            x=x_axis, y=measure, height=350, width=600, responsive=False,
-            title=f"{measure} en fonction de {x_axis}",
-            xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.7,
-            color="#17148E"
-        )
+
+        if chart_type == "scatter_cluster":
+            # K-Means groups observations using BOTH selected fuel variables.
+            # Scaling prevents a fuel with a larger numeric range from dominating.
+            xy = scatter_data[[x_axis, measure]].astype(float).to_numpy()
+            distinct_points = np.unique(xy, axis=0)
+
+            if len(distinct_points) < 2:
+                return pn.pane.Alert(
+                    "Le clustering K-Means nécessite au moins deux paires de valeurs distinctes.",
+                    alert_type="warning"
+                )
+
+            scaler = StandardScaler()
+            xy_scaled = scaler.fit_transform(xy)
+            n_clusters = min(3, len(distinct_points))
+
+            kmeans = KMeans(
+                n_clusters=n_clusters,
+                random_state=42,
+                n_init=10
+            )
+            scatter_data["Cluster"] = [
+                f"Cluster {label + 1}" for label in kmeans.fit_predict(xy_scaled)
+            ]
+
+            # Convert cluster centres back to the original fuel units for display.
+            centers = scaler.inverse_transform(kmeans.cluster_centers_)
+            centers_data = pd.DataFrame(centers, columns=[x_axis, measure])
+            centers_data["Centre"] = "Centre K-Means"
+
+            plot = scatter_data.hvplot.scatter(
+                x=x_axis, y=measure, by="Cluster",
+                height=350, width=720, responsive=False,
+                title=f"Nuage de points — clustering K-Means ({n_clusters} clusters)",
+                xlabel=f"Importation / {x_axis}" if dataset == "Importations" else f"Distribution / {x_axis}",
+                ylabel=f"Volume — {measure}", grid=True, size=75, alpha=0.8,
+                legend="right"
+            )
+            # Overlay a distinct marker for each cluster centre.
+            plot = plot * centers_data.hvplot.scatter(
+                x=x_axis, y=measure, by="Centre",
+                height=350, width=720, responsive=False,
+                size=180, marker="x", line_width=3, color="#d62728",
+                legend="right"
+            )
+
+        elif chart_type == "scatter_poly":
+            plot = scatter_data.hvplot.scatter(
+                x=x_axis, y=measure,
+                height=350, width=720, responsive=False,
+                title=f"Tendance polynomiale — {measure} en fonction de {x_axis}",
+                xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.75,
+                color="#17148E", legend=False
+            )
+            if scatter_data[x_axis].nunique() < 3:
+                return pn.pane.Alert(
+                    "La courbe polynomiale de degré 2 nécessite au moins trois valeurs distinctes sur l'axe X.",
+                    alert_type="warning"
+                )
+            ordered = scatter_data.sort_values(x_axis)
+            coefficients = np.polyfit(ordered[x_axis].astype(float), ordered[measure].astype(float), deg=2)
+            x_curve = np.linspace(ordered[x_axis].min(), ordered[x_axis].max(), 150)
+            curve_data = pd.DataFrame({x_axis: x_curve, measure: np.polyval(coefficients, x_curve)})
+            curve = curve_data.hvplot.line(
+                x=x_axis, y=measure, height=350, width=720, responsive=False,
+                xlabel=x_axis, ylabel=measure, grid=True,
+                color="#d62728", line_width=3, legend=False
+            )
+            plot = plot * curve
+
+        else:
+            plot = scatter_data.hvplot.scatter(
+                x=x_axis, y=measure,
+                height=350, width=720, responsive=False,
+                title=f"{measure} en fonction de {x_axis}",
+                xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.75,
+                color="#17148E", legend=False
+            )
     elif chart_type == "heatmap":
         if "Annee" not in data.columns or "Mois" not in data.columns:
             return pn.pane.Alert("La carte de chaleur nécessite les colonnes Année et Mois.", alert_type="warning")
@@ -1326,7 +1589,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             return pn.pane.Alert("Aucune donnée disponible pour construire la carte de chaleur.", alert_type="warning")
         plot = heat_data.hvplot.heatmap(
             x=heat_x, y="Annee", C=measure, aggregate="sum",
-            height=350, width=600, responsive=False,
+            height=350, width=720, responsive=False,
             title=f"Carte de chaleur — {measure} par {heat_x} et année",
             xlabel=heat_x, ylabel="Année", colorbar=True,
             cmap=["#17148E", "#17148E"]
@@ -1347,11 +1610,11 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         if grouped.empty:
             return pn.pane.Alert("Aucune donnée à afficher avec les paramètres sélectionnés.", alert_type="warning")
 
-        common = dict(height=350, width=600, responsive=False, title=f"{measure} par {category}", grid=True)
+        common = dict(height=350, width=720, responsive=False, title=f"{measure} par {category}", grid=True)
         if chart_type == "pie":
             plot = grouped.hvplot.pie(
                 y=measure, by=category, title=f"Répartition de {measure} par {category}",
-                height=350, width=600, responsive=False, legend="right"
+                height=350, width=720, responsive=False, legend="right"
             )
         elif chart_type == "bar":
             plot = grouped.hvplot.bar(
@@ -1377,7 +1640,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             )
         elif chart_type == "box":
             plot = data.hvplot.box(
-                y=measure, by=category, height=350, width=600, responsive=False,
+                y=measure, by=category, height=350, width=720, responsive=False,
                 title=f"Dispersion de {measure} par {category}",
                 xlabel=category, ylabel=f"Volume de {measure}", grid=True,
                 color="#17148E"
@@ -1400,11 +1663,11 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
         ),
         styles={"background": "#ffffff", "border": "1px solid #17148E", "border-left": "5px solid #17148E",
                 "border-radius": "10px", "padding": "16px"},
-        width=290,
+        width=435,
         sizing_mode="fixed"
     )
     return pn.Row(
-        pn.Column(plot, sizing_mode="fixed", min_width=600, width=600),
+        pn.Column(plot, sizing_mode="fixed", min_width=600, width=720),
         explanation_card,
         sizing_mode="stretch_width",
         min_height=440,
