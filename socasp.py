@@ -205,7 +205,23 @@ def initialize_socasp_lookup_tables():
 initialize_socasp_lookup_tables()
 
 df_importation = df_importation[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
-df_distribution = df_distribution[[col for col in ['No', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil'] if col in df_distribution.columns]]
+
+# Normalize distribution month BEFORE selecting display columns. Some source files
+# store Mois as '-' while retaining a usable Date field.
+if "Mois" not in df_distribution.columns:
+    df_distribution["Mois"] = np.nan
+month_values = pd.to_numeric(
+    df_distribution["Mois"].replace({"-": np.nan, "": np.nan, "None": np.nan}),
+    errors="coerce",
+)
+if "Date" in df_distribution.columns:
+    parsed_distribution_dates = pd.to_datetime(df_distribution["Date"], errors="coerce", dayfirst=True)
+    month_values = month_values.fillna(parsed_distribution_dates.dt.month)
+df_distribution["Mois"] = month_values.astype("Int64").astype(str).replace("<NA>", "-")
+df_distribution = df_distribution[
+    [col for col in ["No", "Marketeur", "Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"]
+     if col in df_distribution.columns]
+]
 
 df = df[[ 'No', 'Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
 
@@ -2052,4 +2068,37 @@ template = pn.template.BootstrapTemplate(
     busy_indicator=None,
 )
 
+# Client-side inactivity logout: 10 minutes without user interaction.
+# This only runs while the authenticated Panel page is open in the browser.
+inactivity_logout_script = pn.pane.HTML(
+    """
+    <script>
+    (function () {
+      if (window.__socaspIdleLogoutInstalled) return;
+      window.__socaspIdleLogoutInstalled = true;
+      var idleTimer = null;
+      var idleLimitMs = 10 * 60 * 1000;
+      function resetIdleTimer() {
+        if (idleTimer) window.clearTimeout(idleTimer);
+        idleTimer = window.setTimeout(function () {
+          var buttons = Array.from(document.querySelectorAll('button, .bk-btn'));
+          var logoutButton = buttons.find(function (button) {
+            return (button.innerText || button.textContent || '').trim().toLowerCase().includes('déconnexion');
+          });
+          if (logoutButton) logoutButton.click();
+        }, idleLimitMs);
+      }
+      ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'pointerdown']
+        .forEach(function (eventName) {
+          document.addEventListener(eventName, resetIdleTimer, {passive: true});
+        });
+      resetIdleTimer();
+    })();
+    </script>
+    """,
+    height=0,
+    margin=0,
+)
+
+template.main.append(inactivity_logout_script)
 template.servable()
