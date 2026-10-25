@@ -1758,7 +1758,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis, algor
         return pn.pane.Alert("Type de graphique non reconnu.", alert_type="warning")
 
     explanation_text = GRAPH_EXPLANATIONS.get(
-        chart_type, "### Lecture du graphique\\nExplorez les données à l'aide des paramètres."
+        chart_type, "### Lecture du graphique\nExplorez les données à l'aide des paramètres."
     )
     if chart_type in ("scatter", "scatter_cluster", "scatter_poly"):
         corr_x = f"Importation_{x_axis}" if comparison_mode else x_axis
@@ -1771,28 +1771,28 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis, algor
             strength = "forte" if abs(r_value) >= 0.7 else "modérée" if abs(r_value) >= 0.4 else "faible"
             direction = "positive" if r_value > 0 else "négative" if r_value < 0 else "nulle"
             explanation_text += (
-                f"\\n\\n**Corrélation de Pearson :** r = {r_value:.3f} ({direction}, intensité {strength}), "
+                f"\n\n**Corrélation de Pearson :** r = {r_value:.3f} ({direction}, intensité {strength}), "
                 f"calculée sur {len(corr_frame)} paire(s). La corrélation décrit une association, pas une causalité."
             )
         else:
             explanation_text += (
-                "\\n\\n**Corrélation non calculable :** il faut au moins deux paires valides et une variation sur les deux axes."
+                "\n\n**Corrélation non calculable :** il faut au moins deux paires valides et une variation sur les deux axes."
             )
         if comparison_mode and len(corr_frame) < 10:
             explanation_text += (
-                f"\\n\\n**Prudence :** seulement {len(corr_frame)} année(s) commune(s) sont disponibles. "
+                f"\n\n**Prudence :** seulement {len(corr_frame)} année(s) commune(s) sont disponibles. "
                 "Le résultat est exploratoire et ne doit pas être généralisé."
             )
         if chart_type == "scatter_cluster":
             if algorithm == "K-Means":
                 explanation_text += (
-                    f"\\n\\n**K-Means :** répartit les observations en {int(k_clusters)} groupes demandés "
+                    f"\n\n**K-Means :** répartit les observations en {int(k_clusters)} groupes demandés "
                     "en minimisant la distance aux centres. Les croix vertes représentent les centres des groupes. "
                     "Les variables sont standardisées avant le calcul pour limiter l'effet des échelles différentes."
                 )
             else:
                 explanation_text += (
-                    f"\\n\\n**DBSCAN :** détecte les groupes selon la densité, sans fixer à l'avance leur nombre. "
+                    f"\n\n**DBSCAN :** détecte les groupes selon la densité, sans fixer à l'avance leur nombre. "
                     f"Paramètres : eps = {dbscan_eps:.1f}, min_samples = {int(dbscan_min_samples)}. "
                     "Les points « Bruit / atypique » ne sont rattachés à aucun groupe dense."
                 )
