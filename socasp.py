@@ -1550,7 +1550,7 @@ def create_fuel_kpis(dataset):
     dbscan_eps=analytics_dbscan_eps,
     dbscan_min_samples=analytics_dbscan_min_samples,
 )
-def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
+def create_analytics_chart(dataset, chart_type, category, measure, x_axis, algorithm, k_clusters, dbscan_eps, dbscan_min_samples):
     data = _analytics_frame(dataset)
     comparison_mode = dataset == "Comparaison annuelle Importation / Distribution"
     if data.empty:
@@ -1625,10 +1625,10 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             scaler = StandardScaler()
             xy_scaled = scaler.fit_transform(xy)
             centers_data = pd.DataFrame(columns=[x_axis_plot, y_axis_plot, "Centre"])
-            if analytics_algorithm.value == "DBSCAN":
+            if algorithm == "DBSCAN":
                 model = DBSCAN(
-                    eps=float(analytics_dbscan_eps.value),
-                    min_samples=int(analytics_dbscan_min_samples.value)
+                    eps=float(dbscan_eps),
+                    min_samples=int(dbscan_min_samples)
                 )
                 labels = model.fit_predict(xy_scaled)
                 scatter_data["Cluster"] = [
@@ -1638,7 +1638,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
                 n_found = len(set(labels) - {-1})
                 title = f"DBSCAN — {n_found} clusters, {int((labels == -1).sum())} points atypiques"
             else:
-                n_clusters = min(int(analytics_kmeans_clusters.value), len(distinct_points), len(scatter_data))
+                n_clusters = min(int(k_clusters), len(distinct_points), len(scatter_data))
                 model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
                 labels = model.fit_predict(xy_scaled)
                 scatter_data["Cluster"] = [f"Cluster {label + 1}" for label in labels]
@@ -1784,16 +1784,16 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
                 "Le résultat est exploratoire et ne doit pas être généralisé."
             )
         if chart_type == "scatter_cluster":
-            if analytics_algorithm.value == "K-Means":
+            if algorithm == "K-Means":
                 explanation_text += (
-                    f"\\n\\n**K-Means :** répartit les observations en {int(analytics_kmeans_clusters.value)} groupes demandés "
+                    f"\\n\\n**K-Means :** répartit les observations en {int(k_clusters)} groupes demandés "
                     "en minimisant la distance aux centres. Les croix vertes représentent les centres des groupes. "
                     "Les variables sont standardisées avant le calcul pour limiter l'effet des échelles différentes."
                 )
             else:
                 explanation_text += (
                     f"\\n\\n**DBSCAN :** détecte les groupes selon la densité, sans fixer à l'avance leur nombre. "
-                    f"Paramètres : eps = {analytics_dbscan_eps.value:.1f}, min_samples = {int(analytics_dbscan_min_samples.value)}. "
+                    f"Paramètres : eps = {dbscan_eps:.1f}, min_samples = {int(dbscan_min_samples)}. "
                     "Les points « Bruit / atypique » ne sont rattachés à aucun groupe dense."
                 )
     explanation = pn.pane.Markdown(explanation_text, sizing_mode="stretch_width")
