@@ -29,9 +29,23 @@ warnings.filterwarnings("ignore")
 pn.extension('tabulator')
 pn.extension('echarts')
 
-host_socasp, user_socasp, password_socasp, database_socasp, database_user = log.returnLogDetails()
+# MySQL is optional for dashboard viewing. Local Excel files are the offline data source.
+try:
+    host_socasp, user_socasp, password_socasp, database_socasp, database_user = log.returnLogDetails()
+except Exception as exc:
+    print(f"SOCASP : configuration MySQL indisponible ; mode hors ligne activé ({exc}).")
+    host_socasp = os.getenv("SOCASP_DB_HOST", "localhost")
+    user_socasp = os.getenv("SOCASP_DB_USER", "")
+    password_socasp = os.getenv("SOCASP_DB_PASSWORD", "")
+    database_socasp = os.getenv("SOCASP_DB_NAME", "socasp")
+    database_user = user_socasp
 
-gotodb.connexion(host_socasp, user_socasp, password_socasp)
+try:
+    gotodb.connexion(host_socasp, user_socasp, password_socasp)
+    MYSQL_AVAILABLE = True
+except Exception as exc:
+    MYSQL_AVAILABLE = False
+    print(f"SOCASP : serveur MySQL indisponible ; affichage des données locales activé ({exc}).")
 
 df_importation = pd.read_excel("./data/importation.xlsx")
 df = pd.read_excel("./data/importation.xlsx")
@@ -155,8 +169,11 @@ def initialize_socasp_lookup_tables():
     except Exception as exc:
         if connection and connection.is_connected():
             connection.rollback()
-        print(f"Erreur d'initialisation des tables de référence SOCASP : {exc}")
-        raise
+        print(
+            "SOCASP : initialisation MySQL ignorée. "
+            "Le tableau de bord continue avec les fichiers Excel locaux. "
+            f"Détail : {exc}"
+        )
     finally:
         if cursor:
             cursor.close()
@@ -551,23 +568,27 @@ select_importation_annee_end = pn.widgets.Select(name="Annee", options=["All"] +
 
 
 def betweenDateImportation():
+    """Filter local importation Excel data by the selected date range (offline-safe)."""
+    data = df_importation.copy()
+    data["Annee"] = pd.to_numeric(data["Annee"], errors="coerce")
+    data["Mois"] = pd.to_numeric(data["Mois"], errors="coerce")
 
-    try:
+    start_date = date_importation_annee_marketeur_start.value
+    end_date = date_importation_annee_marketeur_end.value
 
-        importation_annee_start = date_importation_annee_marketeur_start.value.timetuple().tm_year
-        importation_annee_end   = date_importation_annee_marketeur_end.value.timetuple().tm_year
-        
-        connect.betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_socasp, importation_annee_start, importation_annee_end)
+    if start_date is not None:
+        data = data[
+            (data["Annee"] > start_date.year)
+            | ((data["Annee"] == start_date.year) & (data["Mois"] >= start_date.month))
+        ]
+    if end_date is not None:
+        data = data[
+            (data["Annee"] < end_date.year)
+            | ((data["Annee"] == end_date.year) & (data["Mois"] <= end_date.month))
+        ]
 
-        df_importation_between = pd.read_excel("./data/between_importation_annee.xlsx")
-
-        df_importation_between = df_importation_between[['Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
-        df_importation_between['Annee'] = df_importation_between['Annee'].astype("str")
-
-        return df_importation_between
-
-    except Exception as Ex:
-        print("%s"%(Ex))
+    data["Annee"] = data["Annee"].astype("Int64").astype(str)
+    return data
 
 
 #########################################################################################################################################################
@@ -596,21 +617,17 @@ def betweenDateImportationAnnee():
 
 
 def betweenDateImportationAnnee():
-
-    try:
-
-        importation_annee_start   = select_importation_annee_start.value
-        importation_annee_end   = select_importation_annee_end.value
-
-        connect.betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_socasp, importation_annee_start, importation_annee_end)
-
-        df_importation_between = pd.read_excel("./data/between_importation_annee.xlsx")
-        df_importation_between = df_importation_between[['No', 'Origine', 'Provenance', 'Marketeur', 'Annee', 'Mois', 'Super', 'JetA1', 'Petrole', 'Gazoil']]
-
-        return df_importation_between
-
-    except Exception as Ex:
-        print("%s"%(Ex))
+    """Return local importation rows; annual dropdowns filter this data offline."""
+    data = df_importation.copy()
+    if "No" not in data.columns:
+        data.insert(0, "No", range(1, len(data) + 1))
+    columns = [
+        col for col in
+        ["No", "Origine", "Provenance", "Marketeur", "Annee", "Mois",
+         "Super", "JetA1", "Petrole", "Gazoil"]
+        if col in data.columns
+    ]
+    return data[columns]
 
 
 unique_marketeur =  list(df_distribution['Marketeur'].unique())
@@ -1543,7 +1560,7 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             plot = plot * centers_data.hvplot.scatter(
                 x=x_axis, y=measure, by="Centre",
                 height=350, width=720, responsive=False,
-                size=180, marker="x", line_width=3, color="#d62728",
+                size=180, marker="x", line_width=3, color="#00FF00",
                 legend="right"
             )
 
