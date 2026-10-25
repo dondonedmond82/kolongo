@@ -916,8 +916,27 @@ def create_annee_importation(symbol_annee_importation):
 
 #########################################################################################################################################################
 
+CURRENT_USERNAME = ""
+
+def create_welcome_header():
+    """Create the persistent French welcome header for every authenticated interface."""
+    safe_username = (
+        CURRENT_USERNAME.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;")
+    )
+    return pn.pane.Markdown(
+        f"<div style='background:#17148E;color:#ffffff;padding:16px 22px;"
+        f"border-radius:10px;font-size:22px;font-weight:700;margin-bottom:16px;'>"
+        f"Bienvenue, {safe_username}</div>",
+        sizing_mode="stretch_width",
+    )
+
 def show_page(page_key):
     main_area.clear()
+    main_area.append(create_welcome_header())
     main_area.append(mapping[page_key])
     
 #########################################################################################################################################################
@@ -1750,8 +1769,27 @@ add_information_menu = pn.widgets.Button(
 create_user_menu.on_click(lambda event: show_page("Page8"))
 add_information_menu.on_click(lambda event: show_page("Page9"))
 
-logout   =  pn.widgets.Button(name="Déconnexion", button_type="primary", icon="clipboard-data", styles={"width": "100%"})
-logout.js_on_click(code="""window.location.href = './logout'""")
+logout = pn.widgets.Button(
+    name="Déconnexion",
+    button_type="primary",
+    icon="clipboard-data",
+    styles={"width": "100%"},
+)
+
+def _logout_to_login(event=None):
+    global CURRENT_USERNAME
+    # This is an application-level logout: return to the login form.
+    # It does not clear Panel's HTTP Basic Auth session because this app uses its own form.
+    CURRENT_USERNAME = ""
+    sidebar.visible = False
+    login_username.value = ""
+    login_password.value = ""
+    login_message.object = ""
+    main_area.clear()
+    main_area.append(login_screen)
+    template.title = "SOCASP — Connexion"
+
+logout.on_click(_logout_to_login)
 
 # Top navigation tabs in the main body. The sidebar keeps only the dashboard shortcut and logout.
 main_tabs = pn.Tabs(
@@ -1770,6 +1808,7 @@ main_tabs = pn.Tabs(
 def open_dashboard_tab(event=None):
     # The dashboard remains accessible from the sidebar, not in the top tab bar.
     main_area.clear()
+    main_area.append(create_welcome_header())
     main_area.append(mapping["Page10"])
 
 show_dashboard.on_click(open_dashboard_tab)
@@ -1782,15 +1821,123 @@ sidebar = pn.Column(
     logout,
     styles={"width": "100%", "padding": "18px", "background": "#ffffff", "border-radius": "14px", "border": "1px solid #eeeeee"},
 )
-main_area = pn.Column(main_tabs, styles={"width": "100%"}, sizing_mode="stretch_width")
+# Custom SOCASP login page inspired by the supplied screenshot.
+# Launch WITHOUT --basic-auth so this in-app login page is shown first.
+logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo.png")
+credentials_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "credentials.json")
+
+login_username = pn.widgets.TextInput(
+    name="Nom d'utilisateur", placeholder="Nom d'utilisateur",
+    sizing_mode="stretch_width", height=42,
+)
+login_password = pn.widgets.PasswordInput(
+    name="Mot de passe", placeholder="Mot de passe",
+    sizing_mode="stretch_width", height=42,
+)
+login_message = pn.pane.Markdown("", styles={"color": "#b91c1c", "font-size": "13px"})
+login_button = pn.widgets.Button(
+    name="LOGIN", button_type="primary", sizing_mode="stretch_width", height=42
+)
+
+def _load_login_credentials():
+    try:
+        with open(credentials_path, "r", encoding="utf-8") as credential_file:
+            credentials = json.load(credential_file)
+        if not isinstance(credentials, dict) or not credentials:
+            raise ValueError("credentials.json doit contenir un objet JSON username: password.")
+        return {str(username): str(password) for username, password in credentials.items()}
+    except Exception as exc:
+        login_message.object = (
+            "**Configuration de connexion invalide.** Vérifiez credentials.json. "
+            + str(exc).replace("<", "&lt;").replace(">", "&gt;")
+        )
+        return {}
+
+def _show_login(event=None):
+    main_area.clear()
+    main_area.append(login_screen)
+    sidebar.visible = False
+
+def _login(event=None):
+    global CURRENT_USERNAME
+    credentials = _load_login_credentials()
+    username = login_username.value.strip()
+    password = login_password.value
+    if username in credentials and password and credentials[username] == password:
+        login_message.object = ""
+        CURRENT_USERNAME = username
+        login_username.value = ""
+        login_password.value = ""
+        sidebar.visible = True
+        main_area.clear()
+        main_area.append(create_welcome_header())
+        main_area.append(main_tabs)
+        template.title = f"SOCASP — Bienvenue, {username}"
+    else:
+        login_message.object = "Identifiant ou mot de passe incorrect."
+
+login_button.on_click(_login)
+login_password.param.watch(lambda event: setattr(login_message, "object", ""), "value")
+login_username.param.watch(lambda event: setattr(login_message, "object", ""), "value")
+
+login_logo = (
+    pn.pane.PNG(logo_path, width=150, height=100, sizing_mode="fixed")
+    if os.path.exists(logo_path)
+    else pn.pane.Markdown(
+        "<div style='font-size:30px;font-weight:800;color:#17148E;text-align:center'>SOCASP</div>",
+        width=220, height=75, sizing_mode="fixed",
+    )
+)
+login_screen = pn.Column(
+    pn.Spacer(height=20),
+    pn.Row(login_logo, align="center"),
+    pn.pane.Markdown(
+        "<div style='text-align:center;font-size:16px;color:#111827'>"
+        "Login to access your application</div>",
+        sizing_mode="stretch_width",
+    ),
+    login_username,
+    login_password,
+    login_message,
+    login_button,
+    width=366,
+    max_width=366,
+    styles={
+        "background": "#ffffff",
+        "border": "1px solid #dddddd",
+        "padding": "38px 32px 48px 32px",
+        "position": "fixed",
+        "top": "50%",
+        "left": "50%",
+        "transform": "translate(-50%, -50%)",
+        "margin": "0",
+        "box-sizing": "border-box",
+        "z-index": "1000",
+        "max-height": "95vh",
+        "overflow-y": "auto",
+    },
+    sizing_mode="fixed",
+)
+main_area = pn.Column(
+    login_screen,
+    styles={
+        "width": "100%",
+        "min-height": "100vh",
+        "background": "#fafafa",
+        "padding": "0",
+        "box-sizing": "border-box",
+    },
+    sizing_mode="stretch_width",
+)
+sidebar.visible = False
 
 template = pn.template.BootstrapTemplate(
-    title=f"""Bienvenue {pn.state.user}""",
+    title="SOCASP — Connexion",
     sidebar=[sidebar],
     main=[main_area],
     # footer=[sidebar],
-    header_background="#17148E",
-    site="Société Centrafricaine de stockage des Produits Pétroliers", logo="logo.png",
+    header_background="#ffffff",
+    site="Société Centrafricaine de stockage des Produits Pétroliers", logo=(logo_path if os.path.exists(logo_path) else None),
     sidebar_width=310,
     busy_indicator=None,
 )

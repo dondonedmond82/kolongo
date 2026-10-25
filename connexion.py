@@ -5,9 +5,56 @@ import warnings
 import mysql.connector
 import json
 import login as log
-import ctypes
 
 warnings.filterwarnings("ignore")
+
+
+# Alert container to place in the SOCASP layout immediately below the header bar.
+# In socasp.py, include `connect.alert_container` just below the header component.
+alert_container = pn.Column(
+    sizing_mode="stretch_width",
+    margin=(0, 0, 10, 0),
+    visible=False,
+)
+
+
+def afficher_alerte(erreur, titre="Erreur SOCASP"):
+    """Display a persistent red error message in the web app (no popup)."""
+    message = str(erreur).strip() or "Une erreur inconnue est survenue."
+    texte_alerte = f"{titre} : {message}"
+
+    # Update the red alert displayed below the header in the Panel layout.
+    alert_container.objects = [
+        pn.pane.Alert(
+            texte_alerte,
+            alert_type="danger",
+            sizing_mode="stretch_width",
+            margin=(0, 0, 8, 0),
+        )
+    ]
+    alert_container.visible = True
+    return alert_container
+
+
+def verifier_champs_obligatoires(**champs):
+    """Validate form fields; show a red inline alert for missing values (no popup).
+
+    Example:
+        if not verifier_champs_obligatoires(Origine=origine, Date=date):
+            return
+    """
+    manquants = [
+        nom for nom, valeur in champs.items()
+        if valeur is None or (isinstance(valeur, str) and not valeur.strip())
+    ]
+    if manquants:
+        afficher_alerte(
+            "Veuillez renseigner les champs obligatoires : " + ", ".join(manquants),
+            titre="Champs obligatoires manquants",
+        )
+        return False
+    return True
+
 
 host_socasp, user_socasp, password_socasp, database_socasp, database_user = log.returnLogDetails()
 
@@ -22,7 +69,7 @@ def createDatabaseSocasp(host_socasp, user_socasp, password_socasp):
         mycursor.execute("create database if not exists socasp")
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
 def createTableImportation(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -34,9 +81,9 @@ def createTableImportation(host_socasp, user_socasp, password_socasp, database_s
 
         mycursor.execute("create table if not exists importation(carbuId int not null auto_increment primary key, origine varchar(255) not null, provenance varchar(255) not null, "
         "marketeur varchar(255) not null, essence int not null, jet int not null, petrole int not null, gazoil int not null, anneemois date not null)")
-    
+
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
 def createTableDistribution(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -45,13 +92,12 @@ def createTableDistribution(host_socasp, user_socasp, password_socasp, database_
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor = mydb_socasp.cursor()
-        
+
         mycursor.execute("create table if not exists distribution(carbuId int not null auto_increment primary key, marketeur varchar(255) not null,"
         "essence int not null, jet int not null, petrole int not null, gazoil int not null, anneemois date not null)")
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def createTableUser(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -62,10 +108,9 @@ def createTableUser(host_socasp, user_socasp, password_socasp, database_socasp):
         mycursor = mydb_socasp.cursor()
 
         mycursor.execute("create table if not exists username(user varchar(255) not null primary key, password varchar(255) not null)")
-    
-    except Exception as Ex:
-        print("%s"%(Ex))
 
+    except Exception as Ex:
+        afficher_alerte(Ex)
 
 
 def connectionImportation(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -76,7 +121,7 @@ def connectionImportation(host_socasp, user_socasp, password_socasp, database_so
         df_importation_excel = './data/importation.xlsx'
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute("""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute("""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -102,9 +147,7 @@ def connectionImportation(host_socasp, user_socasp, password_socasp, database_so
         df_socasp.to_excel(df_importation_excel)
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
-
+        afficher_alerte(Ex)
 
 
 def conUsername(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -128,7 +171,7 @@ def conUsername(host_socasp, user_socasp, password_socasp, database_socasp):
         df_socasp.to_excel(df_importation_excel)
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
 def connectionUser(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -149,7 +192,7 @@ def connectionUser(host_socasp, user_socasp, password_socasp, database_socasp):
             json.dump(thisdict, final)
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
 def insertUser(host_socasp, user_socasp, password_socasp, database_socasp, user, password):
@@ -157,7 +200,7 @@ def insertUser(host_socasp, user_socasp, password_socasp, database_socasp, user,
     try:
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
         mycursor = mydb_socasp.cursor()
-        
+
         sql = "INSERT INTO username (user, password) VALUES (%s, %s)"
         val = (user, password)
 
@@ -165,8 +208,7 @@ def insertUser(host_socasp, user_socasp, password_socasp, database_socasp, user,
         mydb_socasp.commit()
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def connection_importation_bis(host_socasp, user_socasp, password_socasp, database_socasp, value_marketeur):
@@ -177,7 +219,7 @@ def connection_importation_bis(host_socasp, user_socasp, password_socasp, databa
         df_importation_excel = './data/importationparmarketeurbis.xlsx'
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -204,9 +246,7 @@ def connection_importation_bis(host_socasp, user_socasp, password_socasp, databa
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
-
+        afficher_alerte(Ex)
 
 
 def connectionDistribution(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -217,7 +257,7 @@ def connectionDistribution(host_socasp, user_socasp, password_socasp, database_s
         df_distribution_excel = './data/distribution.xlsx'
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute("""select carbuId, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute("""select carbuId, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -230,9 +270,9 @@ def connectionDistribution(host_socasp, user_socasp, password_socasp, database_s
             WHEN 10 THEN 'Octobre'
             WHEN 11 THEN 'Novembre'
             WHEN 12 THEN 'Décembre'
-            END as Mes, month(anneemois), anneemois, 
-            
-            CASE weekday(anneemois) 
+            END as Mes, month(anneemois), anneemois,
+
+            CASE weekday(anneemois)
             WHEN 0 THEN 'Lundi'
             WHEN 1 THEN 'Mardi'
             WHEN 2 THEN 'Mercredi'
@@ -254,8 +294,7 @@ def connectionDistribution(host_socasp, user_socasp, password_socasp, database_s
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def insertImportation(host_socasp, user_socasp, password_socasp, database_socasp, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois):
@@ -263,7 +302,7 @@ def insertImportation(host_socasp, user_socasp, password_socasp, database_socasp
     try:
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
         mycursor = mydb_socasp.cursor()
-        
+
         sql = "INSERT INTO importation (origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
         val = (origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois)
 
@@ -272,8 +311,7 @@ def insertImportation(host_socasp, user_socasp, password_socasp, database_socasp
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def insertDistribution(host_socasp, user_socasp, password_socasp, database_socasp, marketeur, essence, jet, petrole, gazoil, anneemois):
@@ -290,8 +328,7 @@ def insertDistribution(host_socasp, user_socasp, password_socasp, database_socas
         mydb_socasp.commit()
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def createUserSocasp(host_socasp, user_socasp, password_socasp, database_socasp, usernamesocasp, passwordsocasp):
@@ -305,8 +342,7 @@ def createUserSocasp(host_socasp, user_socasp, password_socasp, database_socasp,
         mycursor.execute(sqlCreateUser)
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def connectionUsername(host_socasp, user_socasp, password_socasp, database_user):
@@ -331,8 +367,7 @@ def connectionUsername(host_socasp, user_socasp, password_socasp, database_user)
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def exportUser(host_socasp, user_socasp, password_socasp, database_user):
@@ -350,7 +385,7 @@ def exportUser(host_socasp, user_socasp, password_socasp, database_user):
             json.dump(thisdict, final)
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
 def betweenDate(host_socasp, user_socasp, password_socasp, database_socasp, first_year, second_year):
@@ -359,7 +394,7 @@ def betweenDate(host_socasp, user_socasp, password_socasp, database_socasp, firs
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -387,8 +422,7 @@ def betweenDate(host_socasp, user_socasp, password_socasp, database_socasp, firs
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_socasp, first_year, second_year):
@@ -397,7 +431,7 @@ def betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -424,8 +458,7 @@ def betweenImportationAnnee(host_socasp, user_socasp, password_socasp, database_
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def betweenImportationAnneeDate(host_socasp, user_socasp, password_socasp, database_socasp, first_year):
@@ -434,7 +467,7 @@ def betweenImportationAnneeDate(host_socasp, user_socasp, password_socasp, datab
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute(f"""select carbuId, origine, provenance, marketeur, essence, jet, petrole, gazoil, anneemois, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -461,7 +494,7 @@ def betweenImportationAnneeDate(host_socasp, user_socasp, password_socasp, datab
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
 def betweenDistributionMarketeur(host_socasp, user_socasp, password_socasp, database_socasp, first_year, second_year):
@@ -470,7 +503,7 @@ def betweenDistributionMarketeur(host_socasp, user_socasp, password_socasp, data
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute(f"""select carbuId, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute(f"""select carbuId, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -497,17 +530,16 @@ def betweenDistributionMarketeur(host_socasp, user_socasp, password_socasp, data
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
-    
 def betweenDistributionAnnee(host_socasp, user_socasp, password_socasp, database_socasp, first_year, second_year):
 
     try:
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor_socasp = mydb_socasp.cursor()
-        mycursor_socasp.execute(f"""select carbuId, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois) 
+        mycursor_socasp.execute(f"""select carbuId, marketeur, essence, jet, petrole, gazoil, year(anneemois), CASE MONTH(anneemois)
             WHEN 1 THEN 'Janvier'
             WHEN 2 THEN 'Février'
             WHEN 3 THEN 'Mars'
@@ -534,8 +566,7 @@ def betweenDistributionAnnee(host_socasp, user_socasp, password_socasp, database
 
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def createTableOrigine(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -544,12 +575,11 @@ def createTableOrigine(host_socasp, user_socasp, password_socasp, database_socas
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor = mydb_socasp.cursor()
-        
+
         mycursor.execute("create table if not exists origine (id int not null auto_increment primary key, origine varchar(255) not null, origine_data varchar(255) not null)")
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def createTableProvenance(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -558,13 +588,11 @@ def createTableProvenance(host_socasp, user_socasp, password_socasp, database_so
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor = mydb_socasp.cursor()
-        
+
         mycursor.execute("create table if not exists provenance (id int not null auto_increment primary key, provenance varchar(255) not null, provenance_data varchar(255) not null)")
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
-
+        afficher_alerte(Ex)
 
 
 def createTableMarketeur(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -573,11 +601,11 @@ def createTableMarketeur(host_socasp, user_socasp, password_socasp, database_soc
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
 
         mycursor = mydb_socasp.cursor()
-        
+
         mycursor.execute("create table if not exists marketeur (id int not null auto_increment primary key, marketeur varchar(255) not null, marketeur_data varchar(255) not null)")
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
 def insertOrigine(host_socasp, user_socasp, password_socasp, database_socasp, origine, origine_data):
@@ -585,7 +613,7 @@ def insertOrigine(host_socasp, user_socasp, password_socasp, database_socasp, or
     try:
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
         mycursor = mydb_socasp.cursor()
-        
+
         sql = "INSERT INTO origine (origine, origine_data) VALUES (%s, %s)"
         val = (origine, origine_data)
 
@@ -595,16 +623,15 @@ def insertOrigine(host_socasp, user_socasp, password_socasp, database_socasp, or
         print("Data had been correctly added to the database ...")
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
-    
 
 def insertProvenance(host_socasp, user_socasp, password_socasp, database_socasp, provenance, provenance_data):
 
     try:
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
         mycursor = mydb_socasp.cursor()
-        
+
         sql = "INSERT INTO provenance (provenance, provenance_data) VALUES (%s, %s)"
         val = (provenance, provenance_data)
 
@@ -614,16 +641,15 @@ def insertProvenance(host_socasp, user_socasp, password_socasp, database_socasp,
         print("Data had been correctly added to the database ...")
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
 
 
-    
 def insertMarketeur(host_socasp, user_socasp, password_socasp, database_socasp, marketeur, marketeur_data):
 
     try:
         mydb_socasp = mysql.connector.connect(host = host_socasp, user = user_socasp, password =  password_socasp, database = database_socasp)
         mycursor = mydb_socasp.cursor()
-        
+
         sql = "INSERT INTO marketeur (marketeur, marketeur_data) VALUES (%s, %s)"
         val = (marketeur, marketeur_data)
 
@@ -633,9 +659,7 @@ def insertMarketeur(host_socasp, user_socasp, password_socasp, database_socasp, 
         print("Data had been correctly added to the database ...")
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
-
+        afficher_alerte(Ex)
 
 
 def connectionOrigine(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -659,8 +683,7 @@ def connectionOrigine(host_socasp, user_socasp, password_socasp, database_socasp
         df_socasp.to_excel(df_importation_excel)
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
+        afficher_alerte(Ex)
 
 
 def connectionProvenance(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -684,9 +707,7 @@ def connectionProvenance(host_socasp, user_socasp, password_socasp, database_soc
         df_socasp.to_excel(df_importation_excel)
 
     except Exception as Ex:
-        print("%s"%(Ex))
-
-
+        afficher_alerte(Ex)
 
 
 def connectionMarketeur(host_socasp, user_socasp, password_socasp, database_socasp):
@@ -710,4 +731,4 @@ def connectionMarketeur(host_socasp, user_socasp, password_socasp, database_soca
         df_socasp.to_excel(df_importation_excel)
 
     except Exception as Ex:
-        print("%s"%(Ex))
+        afficher_alerte(Ex)
