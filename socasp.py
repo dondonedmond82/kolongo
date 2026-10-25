@@ -17,7 +17,7 @@ from tkinter.filedialog import asksaveasfile
 import ctypes
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN
 from sklearn.preprocessing import StandardScaler
 
 # import create_user as nomusername
@@ -47,10 +47,30 @@ except Exception as exc:
     MYSQL_AVAILABLE = False
     print(f"SOCASP : serveur MySQL indisponible ; affichage des données locales activé ({exc}).")
 
-df_importation = pd.read_excel("./data/importation.xlsx")
-df = pd.read_excel("./data/importation.xlsx")
-df_distribution = pd.read_excel("./data/distribution.xlsx")
-df_user = pd.read_excel("./data/utilisateurmotsdepasse.xlsx")
+# Load the uploaded reference workbooks beside this script first; use legacy paths as fallback.
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def _read_first_existing_excel(candidates, label):
+    for candidate in candidates:
+        path = candidate if os.path.isabs(candidate) else os.path.join(APP_DIR, candidate)
+        if os.path.exists(path):
+            print(f"SOCASP : fichier {label} chargé depuis {path}")
+            return pd.read_excel(path)
+    raise FileNotFoundError(f"Fichier Excel {label} introuvable : {candidates}")
+
+df_importation = _read_first_existing_excel(
+    ["importation.xlsx", os.path.join("data", "importation.xlsx")],
+    "importation"
+)
+df = df_importation.copy()
+df_distribution = _read_first_existing_excel(
+    ["distribution.xlsx", os.path.join("data", "distribution.xlsx")],
+    "distribution"
+)
+try:
+    df_user = pd.read_excel(os.path.join(APP_DIR, "data", "utilisateurmotsdepasse.xlsx"))
+except Exception:
+    df_user = pd.DataFrame(columns=["Hote"])
 
 df_origine = pd.read_excel("./type/origine_data.xlsx")
 df_provenance = pd.read_excel("./type/provenance_data.xlsx")
@@ -1290,7 +1310,39 @@ show_dashboard = pn.widgets.Button(
 show_dashboard.on_click(lambda event: show_page("Page10"))
 
 def _analytics_frame(dataset_name):
-    """Retourne une copie du jeu de données choisi, avec les colonnes numériques converties."""
+    """Charge les sources ou relie les volumes par année pour une comparaison annuelle."""
+    fuels = ["Super", "JetA1", "Petrole", "Gazoil"]
+    if dataset_name == "Comparaison annuelle Importation / Distribution":
+        def annual_totals(source):
+            frame = source.copy()
+            frame["Annee"] = pd.to_numeric(frame["Annee"], errors="coerce")
+            for fuel in fuels:
+                if fuel in frame.columns:
+                    frame[fuel] = pd.to_numeric(frame[fuel], errors="coerce")
+            if "Marketeur" in frame.columns:
+                names = frame["Marketeur"].astype(str).str.strip().str.casefold()
+                total_rows = frame[names.eq("total")]
+                detail_rows = frame[~names.eq("total")]
+                # Use explicit annual Total records when available; otherwise
+                # sum marketeur detail rows. Never add totals and details together.
+                years_with_total = set(pd.to_numeric(total_rows["Annee"], errors="coerce").dropna().tolist())
+                detail_rows = detail_rows[~pd.to_numeric(detail_rows["Annee"], errors="coerce").isin(years_with_total)]
+                frame = pd.concat([total_rows, detail_rows], ignore_index=True)
+            cols = [c for c in fuels if c in frame.columns]
+            return frame.dropna(subset=["Annee"]).groupby("Annee", as_index=False)[cols].sum()
+
+        imp = annual_totals(df_importation).rename(
+            columns={fuel: f"Importation_{fuel}" for fuel in fuels}
+        )
+        dist = annual_totals(df_distribution).rename(
+            columns={fuel: f"Distribution_{fuel}" for fuel in fuels}
+        )
+        joined = imp.merge(dist, on="Annee", how="inner").sort_values("Annee")
+        for fuel in fuels:
+            if f"Importation_{fuel}" in joined.columns:
+                joined[fuel] = joined[f"Importation_{fuel}"]
+        joined["Marketeur"] = "Totaux annuels (sans double comptage)"
+        return joined
     data = df_importation.copy() if dataset_name == "Importations" else df_distribution.copy()
     for col in ["Annee", "Mois", "Super", "JetA1", "Petrole", "Gazoil"]:
         if col in data.columns:
@@ -1299,7 +1351,7 @@ def _analytics_frame(dataset_name):
 
 analytics_dataset = pn.widgets.RadioButtonGroup(
     name="Jeu de données",
-    options=["Importations", "Distributions"],
+    options=["Importations", "Distributions", "Comparaison annuelle Importation / Distribution"],
     value="Importations",
     button_type="primary"
 )
@@ -1335,6 +1387,21 @@ analytics_x_axis = pn.widgets.Select(
     name="Axe X (nuage de points)",
     options=FUEL_OPTIONS,
     value="Petrole"
+)
+
+analytics_algorithm = pn.widgets.Select(
+    name="Algorithme de clustering",
+    options=["K-Means", "DBSCAN"],
+    value="K-Means"
+)
+analytics_kmeans_clusters = pn.widgets.IntSlider(
+    name="Nombre de clusters K-Means", start=2, end=10, value=6, step=1
+)
+analytics_dbscan_eps = pn.widgets.FloatSlider(
+    name="DBSCAN — eps", start=0.1, end=2.0, value=0.5, step=0.1
+)
+analytics_dbscan_min_samples = pn.widgets.IntSlider(
+    name="DBSCAN — min_samples", start=2, end=20, value=5, step=1
 )
 
 # Keep the two fuel selections different. When one dropdown changes, remove
@@ -1478,9 +1545,14 @@ def create_fuel_kpis(dataset):
     category=analytics_category,
     measure=analytics_measure,
     x_axis=analytics_x_axis,
+    algorithm=analytics_algorithm,
+    k_clusters=analytics_kmeans_clusters,
+    dbscan_eps=analytics_dbscan_eps,
+    dbscan_min_samples=analytics_dbscan_min_samples,
 )
 def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
     data = _analytics_frame(dataset)
+    comparison_mode = dataset == "Comparaison annuelle Importation / Distribution"
     if data.empty:
         return pn.pane.Alert("Aucune donnée disponible pour ce jeu de données.", alert_type="warning")
 
@@ -1490,10 +1562,13 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
     if measure not in data.columns:
         return pn.pane.Alert(f"La colonne « {measure} » est absente du jeu de données.", alert_type="warning")
 
-    data[measure] = pd.to_numeric(data[measure], errors="coerce")
-    data = data.dropna(subset=[measure])
+    value_column = f"Distribution_{measure}" if comparison_mode else measure
+    if value_column not in data.columns:
+        return pn.pane.Alert(f"La colonne « {value_column} » est absente du jeu de données.", alert_type="warning")
+    data[value_column] = pd.to_numeric(data[value_column], errors="coerce")
+    data = data.dropna(subset=[value_column])
     if data.empty:
-        return pn.pane.Alert(f"Aucune valeur numérique exploitable pour « {measure} ».", alert_type="warning")
+        return pn.pane.Alert(f"Aucune valeur numérique exploitable pour « {value_column} ».", alert_type="warning")
 
     category_exists = category in data.columns
     plot = None
@@ -1530,90 +1605,87 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
             return pn.pane.Alert(f"La colonne « {x_axis} » est absente.", alert_type="warning")
 
         scatter_data = data.copy()
-        scatter_data[x_axis] = pd.to_numeric(scatter_data[x_axis], errors="coerce")
-        scatter_data[measure] = pd.to_numeric(scatter_data[measure], errors="coerce")
-        scatter_data = scatter_data.replace([np.inf, -np.inf], np.nan).dropna(subset=[x_axis, measure])
+        x_col = f"Importation_{x_axis}" if comparison_mode else x_axis
+        y_col = f"Distribution_{measure}" if comparison_mode else measure
+        if x_col not in scatter_data.columns or y_col not in scatter_data.columns:
+            return pn.pane.Alert("Les colonnes nécessaires à la comparaison ne sont pas disponibles.", alert_type="warning")
+        scatter_data[x_col] = pd.to_numeric(scatter_data[x_col], errors="coerce")
+        scatter_data[y_col] = pd.to_numeric(scatter_data[y_col], errors="coerce")
+        scatter_data = scatter_data.replace([np.inf, -np.inf], np.nan).dropna(subset=[x_col, y_col])
+        x_axis_plot, y_axis_plot = x_col, y_col
 
         if scatter_data.empty:
             return pn.pane.Alert("Aucune paire de valeurs numériques pour le nuage de points.", alert_type="warning")
 
         if chart_type == "scatter_cluster":
-            # K-Means groups observations using BOTH selected fuel variables.
-            # Scaling prevents a fuel with a larger numeric range from dominating.
-            xy = scatter_data[[x_axis, measure]].astype(float).to_numpy()
+            xy = scatter_data[[x_axis_plot, y_axis_plot]].astype(float).to_numpy()
             distinct_points = np.unique(xy, axis=0)
-
             if len(distinct_points) < 2:
-                return pn.pane.Alert(
-                    "Le clustering K-Means nécessite au moins deux paires de valeurs distinctes.",
-                    alert_type="warning"
-                )
-
+                return pn.pane.Alert("Le clustering nécessite au moins deux paires de valeurs distinctes.", alert_type="warning")
             scaler = StandardScaler()
             xy_scaled = scaler.fit_transform(xy)
-            n_clusters = min(3, len(distinct_points))
-
-            kmeans = KMeans(
-                n_clusters=n_clusters,
-                random_state=42,
-                n_init=10
-            )
-            scatter_data["Cluster"] = [
-                f"Cluster {label + 1}" for label in kmeans.fit_predict(xy_scaled)
-            ]
-
-            # Convert cluster centres back to the original fuel units for display.
-            centers = scaler.inverse_transform(kmeans.cluster_centers_)
-            centers_data = pd.DataFrame(centers, columns=[x_axis, measure])
-            centers_data["Centre"] = "Centre K-Means"
-
+            centers_data = pd.DataFrame(columns=[x_axis_plot, y_axis_plot, "Centre"])
+            if analytics_algorithm.value == "DBSCAN":
+                model = DBSCAN(
+                    eps=float(analytics_dbscan_eps.value),
+                    min_samples=int(analytics_dbscan_min_samples.value)
+                )
+                labels = model.fit_predict(xy_scaled)
+                scatter_data["Cluster"] = [
+                    "Bruit / atypique" if label == -1 else f"Cluster {label + 1}"
+                    for label in labels
+                ]
+                n_found = len(set(labels) - {-1})
+                title = f"DBSCAN — {n_found} clusters, {int((labels == -1).sum())} points atypiques"
+            else:
+                n_clusters = min(int(analytics_kmeans_clusters.value), len(distinct_points), len(scatter_data))
+                model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                labels = model.fit_predict(xy_scaled)
+                scatter_data["Cluster"] = [f"Cluster {label + 1}" for label in labels]
+                centers = scaler.inverse_transform(model.cluster_centers_)
+                centers_data = pd.DataFrame(centers, columns=[x_axis_plot, y_axis_plot])
+                centers_data["Centre"] = "Centre K-Means"
+                title = f"K-Means — {n_clusters} clusters"
             plot = scatter_data.hvplot.scatter(
-                x=x_axis, y=measure, by="Cluster",
-                height=350, width=720, responsive=False,
-                title=f"Nuage de points — clustering K-Means ({n_clusters} clusters)",
-                xlabel=f"Importation / {x_axis}" if dataset == "Importations" else f"Distribution / {x_axis}",
-                ylabel=f"Volume — {measure}", grid=True, size=75, alpha=0.8,
-                legend="right"
+                x=x_axis_plot, y=y_axis_plot, by="Cluster",
+                height=350, width=720, responsive=False, title=title,
+                xlabel=f"Importation — {x_axis}" if comparison_mode else (f"Importation / {x_axis}" if dataset == "Importations" else f"Distribution / {x_axis}"),
+                ylabel=f"Distribution — {measure}" if comparison_mode else f"Volume — {measure}",
+                grid=True, size=75, alpha=0.8, legend="right"
             )
-            # Overlay a distinct marker for each cluster centre.
-            plot = plot * centers_data.hvplot.scatter(
-                x=x_axis, y=measure, by="Centre",
-                height=350, width=720, responsive=False,
-                size=180, marker="x", line_width=3, color="#00FF00",
-                legend="right"
-            )
-
+            if not centers_data.empty:
+                plot = plot * centers_data.hvplot.scatter(
+                    x=x_axis_plot, y=y_axis_plot, by="Centre",
+                    height=350, width=720, responsive=False,
+                    size=180, marker="x", line_width=3, color="#00FF00", legend="right"
+                )
         elif chart_type == "scatter_poly":
             plot = scatter_data.hvplot.scatter(
-                x=x_axis, y=measure,
-                height=350, width=720, responsive=False,
-                title=f"Tendance polynomiale — {measure} en fonction de {x_axis}",
-                xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.75,
-                color="#17148E", legend=False
+                x=x_axis_plot, y=y_axis_plot, height=350, width=720, responsive=False,
+                title=f"Tendance polynomiale — {y_col} en fonction de {x_col}",
+                xlabel=f"Importation — {x_axis}" if comparison_mode else x_axis,
+                ylabel=f"Distribution — {measure}" if comparison_mode else measure,
+                grid=True, size=75, alpha=0.75, color="#17148E", legend=False
             )
-            if scatter_data[x_axis].nunique() < 3:
-                return pn.pane.Alert(
-                    "La courbe polynomiale de degré 2 nécessite au moins trois valeurs distinctes sur l'axe X.",
-                    alert_type="warning"
-                )
-            ordered = scatter_data.sort_values(x_axis)
-            coefficients = np.polyfit(ordered[x_axis].astype(float), ordered[measure].astype(float), deg=2)
-            x_curve = np.linspace(ordered[x_axis].min(), ordered[x_axis].max(), 150)
-            curve_data = pd.DataFrame({x_axis: x_curve, measure: np.polyval(coefficients, x_curve)})
+            if scatter_data[x_axis_plot].nunique() < 3:
+                return pn.pane.Alert("La courbe polynomiale de degré 2 nécessite au moins trois valeurs distinctes sur l'axe X.", alert_type="warning")
+            ordered = scatter_data.sort_values(x_axis_plot)
+            coefficients = np.polyfit(ordered[x_axis_plot].astype(float), ordered[y_axis_plot].astype(float), deg=2)
+            x_curve = np.linspace(ordered[x_axis_plot].min(), ordered[x_axis_plot].max(), 150)
+            curve_data = pd.DataFrame({x_axis_plot: x_curve, y_axis_plot: np.polyval(coefficients, x_curve)})
             curve = curve_data.hvplot.line(
-                x=x_axis, y=measure, height=350, width=720, responsive=False,
-                xlabel=x_axis, ylabel=measure, grid=True,
+                x=x_axis_plot, y=y_axis_plot, height=350, width=720, responsive=False,
+                xlabel=x_axis_plot, ylabel=y_axis_plot, grid=True,
                 color="#d62728", line_width=3, legend=False
             )
             plot = plot * curve
-
         else:
             plot = scatter_data.hvplot.scatter(
-                x=x_axis, y=measure,
-                height=350, width=720, responsive=False,
-                title=f"{measure} en fonction de {x_axis}",
-                xlabel=x_axis, ylabel=measure, grid=True, size=75, alpha=0.75,
-                color="#17148E", legend=False
+                x=x_axis_plot, y=y_axis_plot, height=350, width=720, responsive=False,
+                title=f"{y_col} en fonction de {x_col}",
+                xlabel=f"Importation — {x_axis}" if comparison_mode else x_axis,
+                ylabel=f"Distribution — {measure}" if comparison_mode else measure,
+                grid=True, size=75, alpha=0.75, color="#17148E", legend=False
             )
     elif chart_type == "heatmap":
         if "Annee" not in data.columns or "Mois" not in data.columns:
@@ -1685,10 +1757,46 @@ def create_analytics_chart(dataset, chart_type, category, measure, x_axis):
     if plot is None:
         return pn.pane.Alert("Type de graphique non reconnu.", alert_type="warning")
 
-    explanation = pn.pane.Markdown(
-        GRAPH_EXPLANATIONS.get(chart_type, "### Lecture du graphique\nExplorez les données à l'aide des paramètres."),
-        sizing_mode="stretch_width"
+    explanation_text = GRAPH_EXPLANATIONS.get(
+        chart_type, "### Lecture du graphique\\nExplorez les données à l'aide des paramètres."
     )
+    if chart_type in ("scatter", "scatter_cluster", "scatter_poly"):
+        corr_x = f"Importation_{x_axis}" if comparison_mode else x_axis
+        corr_y = f"Distribution_{measure}" if comparison_mode else measure
+        corr_frame = data[[corr_x, corr_y]].apply(pd.to_numeric, errors="coerce").replace(
+            [np.inf, -np.inf], np.nan
+        ).dropna()
+        if len(corr_frame) >= 2 and corr_frame[corr_x].nunique() > 1 and corr_frame[corr_y].nunique() > 1:
+            r_value = corr_frame[corr_x].corr(corr_frame[corr_y])
+            strength = "forte" if abs(r_value) >= 0.7 else "modérée" if abs(r_value) >= 0.4 else "faible"
+            direction = "positive" if r_value > 0 else "négative" if r_value < 0 else "nulle"
+            explanation_text += (
+                f"\\n\\n**Corrélation de Pearson :** r = {r_value:.3f} ({direction}, intensité {strength}), "
+                f"calculée sur {len(corr_frame)} paire(s). La corrélation décrit une association, pas une causalité."
+            )
+        else:
+            explanation_text += (
+                "\\n\\n**Corrélation non calculable :** il faut au moins deux paires valides et une variation sur les deux axes."
+            )
+        if comparison_mode and len(corr_frame) < 10:
+            explanation_text += (
+                f"\\n\\n**Prudence :** seulement {len(corr_frame)} année(s) commune(s) sont disponibles. "
+                "Le résultat est exploratoire et ne doit pas être généralisé."
+            )
+        if chart_type == "scatter_cluster":
+            if analytics_algorithm.value == "K-Means":
+                explanation_text += (
+                    f"\\n\\n**K-Means :** répartit les observations en {int(analytics_kmeans_clusters.value)} groupes demandés "
+                    "en minimisant la distance aux centres. Les croix vertes représentent les centres des groupes. "
+                    "Les variables sont standardisées avant le calcul pour limiter l'effet des échelles différentes."
+                )
+            else:
+                explanation_text += (
+                    f"\\n\\n**DBSCAN :** détecte les groupes selon la densité, sans fixer à l'avance leur nombre. "
+                    f"Paramètres : eps = {analytics_dbscan_eps.value:.1f}, min_samples = {int(analytics_dbscan_min_samples.value)}. "
+                    "Les points « Bruit / atypique » ne sont rattachés à aucun groupe dense."
+                )
+    explanation = pn.pane.Markdown(explanation_text, sizing_mode="stretch_width")
     explanation_card = pn.Column(
         explanation,
         pn.pane.Markdown(
@@ -1721,13 +1829,15 @@ def CreatePage10():
     controls = pn.Card(
         pn.Row(analytics_dataset, analytics_chart_type, sizing_mode="stretch_width"),
         pn.Row(analytics_category, analytics_measure, analytics_x_axis, sizing_mode="stretch_width"),
+        pn.Row(analytics_algorithm, analytics_kmeans_clusters, sizing_mode="stretch_width"),
+        pn.Row(analytics_dbscan_eps, analytics_dbscan_min_samples, sizing_mode="stretch_width"),
         title="Paramètres d'analyse",
         collapsed=False,
         styles={"background": "white", "border-radius": "12px", "border": "1px solid #17148E"}
     )
     note = pn.pane.Markdown(
         "**Mode d'emploi :** choisissez le jeu de données, le type de graphique, la catégorie et le carburant. "
-        "Le graphique et son explication en français se mettent à jour automatiquement.",
+        "Le graphique et son explication en français se mettent à jour automatiquement. En comparaison annuelle, les lignes « Total » sont exclues pour éviter le double comptage.",
         styles={"color": "#17148E"}
     )
     kpi_heading = pn.pane.Markdown("### Indicateurs clés de performance (KPI)")
